@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dashboard Financeiro Santander</title>
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #e60000;
+      --primary-dark: #b30000;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 12px;
+      padding-bottom: 40px;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: none;
+    }
+
+    /* Notificação Toast */
+    #toast-msg {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999999;
+      background: #10b981;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      font-size: 0.9rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tela de Bloqueio */
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 99999;
+    }
+
+    .lock-card {
+      background: #ffffff;
+      padding: 32px 24px;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    .lock-card h2 {
+      font-size: 1.3rem;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+
+    .lock-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .lock-card input[type="password"] {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1.3rem;
+      text-align: center;
+      letter-spacing: 6px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+
+    .lock-card input[type="password"]:focus {
+      border-color: var(--primary);
+    }
+
+    .lock-remember {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      cursor: pointer;
+    }
+
+    .btn-unlock {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Cabeçalho */
+    header {
+      background: var(--card-bg);
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-top h1 {
+      font-size: 1.25rem;
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .header-total-box {
+      background: #f1f5f9;
+      padding: 12px 14px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-action {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-action:hover {
+      background: #e2e8f0;
+    }
+
+    /* Abas */
+    .nav-tabs {
+      display: flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+
+    .nav-tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 10px 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 8px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .nav-tab-btn.active {
+      color: var(--text);
+      background-color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Caixa Padrão */
+    .card-box {
+      background: var(--card-bg);
+      padding: 18px;
+      border-radius: var(--radius);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      margin-bottom: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .form-group input, .form-group select {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.92rem;
+      outline: none;
+      background: #fff;
+    }
+
+    .btn-add {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 11px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+
+    .btn-add:hover { background: var(--primary-dark); }
+    .btn-add:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .badge-parcela {
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 3px 7px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .badge-a-vista {
+      background: #f1f5f9;
+      color: var(--text-muted);
+      padding: 3px 7px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
+
+    .chart-container {
+      background: var(--card-bg);
+      padding: 16px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .chart-container h3 {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+
+    .sync-alert {
+      background: #fffaf0;
+      border: 1px solid #feebc8;
+      color: #c05621;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    /* ============================================================
+       MOBILE (< 768px)
+       ============================================================ */
+    @media (max-width: 767px) {
+      .desktop-only { display: none !important; }
+
+      .people-grid {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .people-grid::-webkit-scrollbar { display: none; }
+      
+      .person-card {
+        flex: 0 0 145px;
+        scroll-snap-align: start;
+        background: var(--card-bg);
+        padding: 12px 14px;
+        border-radius: 12px;
+        border-left: 4px solid var(--primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      }
+      .person-card h3 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 2px; }
+      .person-card .amount { font-size: 1.1rem; font-weight: 800; }
+      .person-card .qty { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+      details.form-accordion summary {
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--primary);
+      }
+      details.form-accordion summary::-webkit-details-marker { display: none; }
+      details.form-accordion summary::after { content: '+ Adicionar'; font-size: 0.85rem; font-weight: 700; }
+      details.form-accordion[open] summary::after { content: '− Fechar'; }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+        margin-top: 14px;
+      }
+
+      .filter-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .filter-bar select {
+        width: 100%;
+        padding: 10px 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #fff;
+      }
+
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+
+      .mobile-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      }
+
+      .mobile-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+      }
+
+      .mobile-card-desc {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text);
+        max-width: 68%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .mobile-card-val {
+        font-size: 1.05rem;
+        font-weight: 800;
+      }
+
+      .mobile-card-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .mobile-card-bottom {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        border-top: 1px dashed var(--border);
+        padding-top: 10px;
+      }
+
+      .select-responsavel {
+        padding: 7px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: 0.82rem;
+        font-weight: 600;
+        background: #f8fafc;
+        max-width: 110px;
+      }
+
+      .select-categoria {
+        padding: 7px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: 0.82rem;
+        font-weight: 600;
+        background: #f8fafc;
+        flex: 1;
+      }
+
+      .btn-delete-mobile {
+        background: #fee2e2;
+        color: #ef4444;
+        border: none;
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        cursor: pointer;
+      }
+    }
+
+    /* ============================================================
+       DESKTOP (>= 768px)
+       ============================================================ */
+    @media (min-width: 768px) {
+      body { padding: 24px; }
+      .mobile-only { display: none !important; }
+
+      header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header-total-box {
+        text-align: right;
+        background: transparent;
+        padding: 0;
+        display: block;
+      }
+
+      .people-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+
+      .person-card {
+        background: var(--card-bg);
+        padding: 16px;
+        border-radius: 10px;
+        border-left: 4px solid var(--primary);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        cursor: pointer;
+      }
+      .person-card:hover { transform: translateY(-2px); }
+      .person-card h3 { font-size: 0.95rem; margin-bottom: 4px; }
+      .person-card .amount { font-size: 1.25rem; font-weight: 700; }
+      .person-card .qty { font-size: 0.75rem; color: #888; margin-top: 2px; }
+
+      details.form-accordion summary {
+        font-size: 1.15rem;
+        font-weight: 700;
+        pointer-events: none;
+        cursor: default;
+        list-style: none;
+        color: #1a202c;
+        margin-bottom: 14px;
+      }
+      details.form-accordion summary::-webkit-details-marker { display: none; }
+
+      .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .filter-bar {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+      .filter-bar select {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.88rem;
+        background: #fff;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        text-align: left;
+      }
+
+      th {
+        background: #f8fafc;
+        padding: 12px 10px;
+        color: var(--text-muted);
+        font-weight: 600;
+        border-bottom: 2px solid var(--border);
+      }
+
+      td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+
+      tr:hover { background-color: #fafbfc; }
+
+      .select-responsavel, .select-categoria {
+        padding: 5px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        font-size: 0.85rem;
+        background: #fff;
+      }
+
+      .btn-delete-pc {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 2px 6px;
+      }
+
+      .charts-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NOTIFICAÇÃO TOAST -->
+<div id="toast-msg"></div>
+
+<!-- TELA DE PROTEÇÃO -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <h2>🔒 Acesso Restrito</h2>
+    <p>Digite a senha para acessar o controle de gastos</p>
+    <input type="password" inputmode="numeric" id="input-senha" placeholder="••••" autofocus onkeydown="if(event.key==='Enter') verificarSenha()">
+    <label class="lock-remember">
+      <input type="checkbox" id="check-lembrar"> Lembrar neste aparelho
+    </label>
+    <button class="btn-unlock" onclick="verificarSenha()">Entrar no Painel</button>
+    <div id="lock-error" style="color:#ef4444; font-size:0.8rem; margin-top:8px; display:none;">Senha incorreta.</div>
+  </div>
+</div>
+
+<!-- APLICAÇÃO PRINCIPAL -->
+<div class="container" id="main-app">
+  <header>
+    <div class="header-top">
+      <div>
+        <h1>Gestão de Fatura & Cartão</h1>
+        <small id="status-storage" style="color:var(--text-muted);">Sincronizando...</small>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action" onclick="configurarSupabase()">⚙️ Supabase</button>
+        <button class="btn-action" onclick="bloquearPainel()">🔒 Bloquear</button>
+      </div>
+    </div>
+    <div class="header-total-box">
+      <span id="label-fatura-total" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Total Fatura</span>
+      <strong id="global-total" style="font-size: 1.6rem; color: #16a34a;">R$ 0,00</strong>
+    </div>
+  </header>
+
+  <div id="sync-banner" class="sync-alert" style="display:none;">
+    <span>⚡ <strong>Aviso:</strong> A tabela no Supabase está conectada mas vazia. Enviar os lançamentos base para a nuvem?</span>
+    <button onclick="sincronizarDadosIniciais()" style="background:#dd6b20; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">Sincronizar Agora</button>
+  </div>
+
+  <!-- Abas -->
+  <div class="nav-tabs">
+    <button class="nav-tab-btn active" onclick="switchTab('tab-lancamentos', this)">📑 Lançamentos & Fatura</button>
+    <button class="nav-tab-btn" onclick="switchTab('tab-analitico', this)">📊 Gráficos & Projeção</button>
+  </div>
+
+  <!-- ABA 1: LANÇAMENTOS -->
+  <div id="tab-lancamentos" class="tab-content active">
+    
+    <!-- Pessoas (Carrossel no celular / Grid no PC) -->
+    <div class="people-grid" id="people-cards"></div>
+
+    <!-- Formulário -->
+    <div class="card-box">
+      <details class="form-accordion" id="details-form">
+        <summary>Incluir Nova Compra</summary>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Data da Compra</label>
+            <input type="date" id="inp-data-compra">
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="inp-desc" placeholder="Ex: Farmácia Drogasil...">
+          </div>
+          <div class="form-group">
+            <label>Valor Total (R$)</label>
+            <input type="text" inputmode="decimal" id="inp-valor-total" placeholder="Ex: 150,00">
+          </div>
+          <div class="form-group">
+            <label>Parcelado?</label>
+            <select id="inp-parcelado" onchange="toggleParcelasInput()">
+              <option value="Não">Não (À vista)</option>
+              <option value="Sim">Sim</option>
+            </select>
+          </div>
+          <div class="form-group" id="group-qtd-parcelas" style="display:none;">
+            <label>Qtd Parcelas</label>
+            <input type="number" id="inp-qtd-parcelas" min="2" max="60" value="2">
+          </div>
+          <div class="form-group">
+            <label>Responsável</label>
+            <select id="inp-pessoa">
+              <option value="Lucas">Lucas</option>
+              <option value="Matheus">Matheus</option>
+              <option value="Bruna">Bruna</option>
+              <option value="Amon">Amon</option>
+              <option value="Marta">Marta</option>
+              <option value="Vera">Vera</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Categoria</label>
+            <select id="inp-tipo">
+              <option value="Supermercado">Supermercado</option>
+              <option value="Alimentação">Alimentação</option>
+              <option value="Transporte">Transporte</option>
+              <option value="Lazer/Assinaturas">Lazer/Assinaturas</option>
+              <option value="Compras/Vestuário">Compras/Lojas</option>
+              <option value="Farmácia/Saúde">Farmácia/Saúde</option>
+              <option value="Serviços">Serviços/Contas</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <button class="btn-add" id="btn-submit" onclick="adicionarGasto()">Salvar Compra</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Filtros e Cabeçalho da Lista -->
+    <div class="card-box" style="padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <h2 style="font-size: 1.15rem;">Lançamentos</h2>
+        <div class="filter-bar">
+          <div>
+            <label class="desktop-only" style="font-size:0.85rem; font-weight:600; margin-right:4px;">Fatura:</label>
+            <select id="filter-mes" onchange="atualizarFiltros()"></select>
+          </div>
+          <div>
+            <label class="desktop-only" style="font-size:0.85rem; font-weight:600; margin-right:4px;">Pessoa:</label>
+            <select id="filter-pessoa" onchange="renderTabela()">
+              <option value="Todos">Todas as Pessoas</option>
+              <option value="Lucas">Lucas</option>
+              <option value="Matheus">Matheus</option>
+              <option value="Bruna">Bruna</option>
+              <option value="Amon">Amon</option>
+              <option value="Marta">Marta</option>
+              <option value="Vera">Vera</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela Desktop & Cards Mobile -->
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Data Compra</th>
+              <th>Mês Fatura</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Parcelado?</th>
+              <th>Parcela</th>
+              <th>Valor Total</th>
+              <th>Valor Parcela</th>
+              <th>Responsável</th>
+              <th style="width: 40px;"></th>
+            </tr>
+          </thead>
+          <tbody id="gastos-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA 2: VISÃO ANALÍTICA -->
+  <div id="tab-analitico" class="tab-content">
+    <div class="charts-grid">
+      <div class="chart-container">
+        <h3>Evolução Mensal (12 Meses)</h3>
+        <div style="height: 220px; position: relative;">
+          <canvas id="chartEvolucao"></canvas>
+        </div>
+      </div>
+      <div class="chart-container">
+        <h3>Divisão de Gastos por Pessoa</h3>
+        <div style="height: 220px; position: relative;">
+          <canvas id="chartPessoas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Análise de Consumo por Tipo/Categoria -->
+    <div class="card-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+        <div>
+          <h2 style="font-size: 1.15rem;">Consumo por Categoria de Cada Pessoa</h2>
+          <p style="color: var(--text-muted); font-size: 0.82rem;">Selecione o mês para analisar no que cada pessoa gastou.</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <label style="font-size: 0.85rem; font-weight: 600;">Mês de Análise:</label>
+          <select id="analitico-mes-tipo" onchange="renderConsumoTipo()" style="padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; font-weight: 600; background: #fff;"></select>
+        </div>
+      </div>
+
+      <div style="height: 280px; position: relative; margin-bottom: 24px;">
+        <canvas id="chartTiposPessoas"></canvas>
+      </div>
+
+      <h3 style="font-size: 0.95rem; margin-bottom: 10px;">Matriz Detalhada: Categoria × Pessoa</h3>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; font-size: 0.84rem;">
+          <thead id="thead-tipo-pessoa"></thead>
+          <tbody id="tbody-tipo-pessoa"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tabela Geral de Projeção -->
+    <div class="card-box">
+      <h2 style="font-size: 1.15rem; margin-bottom: 12px;">Detalhamento Geral da Projeção de Parcelas</h2>
+      <div style="overflow-x: auto;">
+        <table style="width:100%; font-size:0.85rem;">
+          <thead id="thead-progressao"></thead>
+          <tbody id="tbody-progressao"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SENHA_ACESSO = "3011";
+  const STORAGE_KEY = "dashboard_gastos_cartao_v3";
+
+  let SUPABASE_URL = localStorage.getItem("supabase_url") || "SUA_SUPABASE_URL_AQUI";
+  let SUPABASE_ANON_KEY = localStorage.getItem("supabase_key") || "SUA_SUPABASE_ANON_KEY_AQUI";
+
+  let sb = null;
+  if (SUPABASE_URL && !SUPABASE_URL.startsWith("SUA_") && typeof supabase !== "undefined") {
+    try {
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch(e) {
+      console.warn("Erro ao instanciar cliente Supabase:", e);
+    }
+  }
+
+  function mostrarNotificacao(texto, cor = "#10b981") {
+    const toast = document.getElementById("toast-msg");
+    if (!toast) return;
+    toast.textContent = texto;
+    toast.style.background = cor;
+    toast.style.display = "block";
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 3500);
+  }
+
+  function configurarSupabase() {
+    const atualUrl = SUPABASE_URL.startsWith("SUA_") ? "" : SUPABASE_URL;
+    const url = prompt("Cole a URL do seu Supabase:", atualUrl);
+    if (url === null) return;
+
+    const atualKey = SUPABASE_ANON_KEY.startsWith("SUA_") ? "" : SUPABASE_ANON_KEY;
+    const key = prompt("Cole a Anon Key do seu Supabase:", atualKey);
+    if (key === null) return;
+
+    if (url.trim() && key.trim()) {
+      localStorage.setItem("supabase_url", url.trim());
+      localStorage.setItem("supabase_key", key.trim());
+      alert("Credenciais salvas! A página será recarregada.");
+      location.reload();
+    }
+  }
+
+  // 1. AUTENTICAÇÃO
+  function verificarSenha() {
+    const input = document.getElementById("input-senha").value;
+    const lembrar = document.getElementById("check-lembrar").checked;
+    const erro = document.getElementById("lock-error");
+
+    if (input === SENHA_ACESSO) {
+      if (lembrar) {
+        localStorage.setItem("auth_dashboard_3011", "true");
+      } else {
+        sessionStorage.setItem("auth_dashboard_3011", "true");
+      }
+      desbloquearPainel();
+    } else {
+      erro.style.display = "block";
+      document.getElementById("input-senha").value = "";
+    }
+  }
+
+  function desbloquearPainel() {
+    document.getElementById("lock-screen").style.display = "none";
+    document.getElementById("main-app").style.display = "block";
+
+    if (window.innerWidth >= 768) {
+      document.getElementById("details-form").setAttribute("open", "true");
+    }
+
+    iniciarDashboard();
+  }
+
+  function bloquearPainel() {
+    localStorage.removeItem("auth_dashboard_3011");
+    sessionStorage.removeItem("auth_dashboard_3011");
+    location.reload();
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("auth_dashboard_3011") === "true" || sessionStorage.getItem("auth_dashboard_3011") === "true") {
+      desbloquearPainel();
+    }
+  });
+
+  // 2. BASE DE DADOS COMPLETA
+  const dadosIniciaisFatura = [
+    { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "MP FABYELELIRAFE", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 10.90, valor_parcela: 10.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "GOOGLE HBO MAX STREAM", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.90, valor_parcela: 44.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-07", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.55, valor_parcela: 9.55, pessoa: "Lucas" },
+    { data_compra: "2026-08-08", mes_fatura: "2026-08", descricao: "BRASEIRO O CUNHA", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 23.99, valor_parcela: 23.99, pessoa: "Lucas" },
+    { data_compra: "2026-08-09", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 10.98, valor_parcela: 10.98, pessoa: "Lucas" },
+    { data_compra: "2026-08-09", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 3.00, valor_parcela: 3.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-11", mes_fatura: "2026-08", descricao: "COMPRE MAX MISTER HUL", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 15.67, valor_parcela: 15.67, pessoa: "Lucas" },
+    { data_compra: "2026-08-12", mes_fatura: "2026-08", descricao: "MERCADINHO SAO FRANCIS", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.99, valor_parcela: 7.99, pessoa: "Lucas" },
+    { data_compra: "2026-08-12", mes_fatura: "2026-08", descricao: "PAULINOGREGORIO", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 23.00, valor_parcela: 23.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-13", mes_fatura: "2026-08", descricao: "ABASTEC ABASTECE AI", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 50.31, valor_parcela: 50.31, pessoa: "Lucas" },
+    { data_compra: "2026-08-13", mes_fatura: "2026-08", descricao: "IFD JOAO PE", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 8.89, valor_parcela: 8.89, pessoa: "Lucas" },
+    { data_compra: "2026-08-16", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.48, valor_parcela: 6.48, pessoa: "Lucas" },
+    { data_compra: "2026-08-16", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 34.76, valor_parcela: 34.76, pessoa: "Lucas" },
+    { data_compra: "2026-08-17", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.89, valor_parcela: 4.89, pessoa: "Lucas" },
+    { data_compra: "2026-08-18", mes_fatura: "2026-08", descricao: "MARISA 527", tipo: "Compras/Vestuário", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 21.98, valor_parcela: 21.98, pessoa: "Lucas" },
+    { data_compra: "2026-08-18", mes_fatura: "2026-08", descricao: "LOJA FISICA LI 07 NSH", tipo: "Compras/Vestuário", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 25.44, valor_parcela: 25.44, pessoa: "Lucas" },
+    { data_compra: "2026-08-18", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.90, valor_parcela: 6.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-18", mes_fatura: "2026-08", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 29.73, valor_parcela: 29.73, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 2.40, valor_parcela: 2.40, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "CANTINHO DO FRANGO", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 70.00, valor_parcela: 70.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "MAIS QUE CAFE LTDA", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 3.00, valor_parcela: 3.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.00, valor_parcela: 4.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "PAYGO MFS COMERCIO", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.00, valor_parcela: 5.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-21", mes_fatura: "2026-08", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 11.89, valor_parcela: 11.89, pessoa: "Lucas" },
+    { data_compra: "2026-08-22", mes_fatura: "2026-08", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.40, valor_parcela: 5.40, pessoa: "Lucas" },
+    { data_compra: "2026-08-23", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 71.25, valor_parcela: 71.25, pessoa: "Lucas" },
+    { data_compra: "2026-08-23", mes_fatura: "2026-08", descricao: "POSTO CANINDE", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 30.00, valor_parcela: 30.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-25", mes_fatura: "2026-08", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.40, valor_parcela: 6.40, pessoa: "Lucas" },
+    { data_compra: "2026-08-26", mes_fatura: "2026-08", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.80, valor_parcela: 4.80, pessoa: "Lucas" },
+    { data_compra: "2026-08-26", mes_fatura: "2026-08", descricao: "COMPRE MAX MISTER HUL", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.59, valor_parcela: 4.59, pessoa: "Lucas" },
+    { data_compra: "2026-08-27", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.12, valor_parcela: 4.12, pessoa: "Lucas" },
+    { data_compra: "2026-08-27", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.46, valor_parcela: 4.46, pessoa: "Lucas" },
+    { data_compra: "2025-12-01", mes_fatura: "2026-08", descricao: "FLAMINGO KIDS COMERCIO", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 9, p_total: 10, valor_total: 1500.00, valor_parcela: 150.00, pessoa: "Lucas" },
+    { data_compra: "2026-01-30", mes_fatura: "2026-08", descricao: "GRUPO CASAS BAHIA 1707", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 8, p_total: 10, valor_total: 2069.10, valor_parcela: 206.91, pessoa: "Lucas" },
+    { data_compra: "2026-02-13", mes_fatura: "2026-08", descricao: "PINPAG SEPROSY", tipo: "Serviços", parcelado: "Sim", p_atual: 7, p_total: 12, valor_total: 2150.76, valor_parcela: 179.23, pessoa: "Lucas" },
+    { data_compra: "2026-02-18", mes_fatura: "2026-08", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 7, p_total: 8, valor_total: 1550.16, valor_parcela: 193.77, pessoa: "Lucas" },
+    { data_compra: "2026-03-16", mes_fatura: "2026-08", descricao: "JIM COM 56167657 MAR", tipo: "Serviços", parcelado: "Sim", p_atual: 6, p_total: 6, valor_total: 429.96, valor_parcela: 71.66, pessoa: "Marta" },
+    { data_compra: "2026-05-08", mes_fatura: "2026-08", descricao: "GRUPO CASAS BAHIA 1599", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 4, p_total: 5, valor_total: 199.00, valor_parcela: 39.80, pessoa: "Lucas" },
+    { data_compra: "2026-05-09", mes_fatura: "2026-08", descricao: "CLINICA DOS CAP", tipo: "Farmácia/Saúde", parcelado: "Sim", p_atual: 4, p_total: 8, valor_total: 494.88, valor_parcela: 61.86, pessoa: "Lucas" },
+    { data_compra: "2026-05-19", mes_fatura: "2026-08", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 4, p_total: 5, valor_total: 800.60, valor_parcela: 160.12, pessoa: "Lucas" },
+    { data_compra: "2026-05-31", mes_fatura: "2026-08", descricao: "LASA", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 3, p_total: 3, valor_total: 75.12, valor_parcela: 25.04, pessoa: "Lucas" },
+    { data_compra: "2026-06-12", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Sim", p_atual: 3, p_total: 3, valor_total: 99.48, valor_parcela: 33.16, pessoa: "Lucas" },
+    { data_compra: "2026-06-18", mes_fatura: "2026-08", descricao: "DROGASIL 3269", tipo: "Farmácia/Saúde", parcelado: "Sim", p_atual: 3, p_total: 3, valor_total: 104.67, valor_parcela: 34.89, pessoa: "Lucas" },
+    { data_compra: "2026-07-07", mes_fatura: "2026-08", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 2, p_total: 3, valor_total: 300.00, valor_parcela: 100.00, pessoa: "Lucas" },
+    { data_compra: "2026-07-12", mes_fatura: "2026-08", descricao: "PAGUE MENOS 0285", tipo: "Farmácia/Saúde", parcelado: "Sim", p_atual: 2, p_total: 3, valor_total: 120.81, valor_parcela: 40.27, pessoa: "Lucas" },
+    { data_compra: "2026-07-16", mes_fatura: "2026-08", descricao: "JIM COM BRUNA SIQUEI", tipo: "Serviços", parcelado: "Sim", p_atual: 2, p_total: 4, valor_total: 651.60, valor_parcela: 162.90, pessoa: "Bruna" },
+    { data_compra: "2026-07-23", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Sim", p_atual: 2, p_total: 2, valor_total: 56.52, valor_parcela: 28.26, pessoa: "Lucas" },
+    { data_compra: "2026-07-31", mes_fatura: "2026-08", descricao: "ARCO IRIS COMERCIO", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 2, p_total: 3, valor_total: 317.79, valor_parcela: 105.93, pessoa: "Lucas" },
+    { data_compra: "2026-08-01", mes_fatura: "2026-08", descricao: "PANIFICADORA VO JANDIR", tipo: "Alimentação", parcelado: "Sim", p_atual: 2, p_total: 3, valor_total: 157.50, valor_parcela: 52.50, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "LB NORTH SHOP FORTALEZ", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 169.95, valor_parcela: 56.65, pessoa: "Lucas" },
+    { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 122.48, valor_parcela: 61.24, pessoa: "Lucas" },
+    { data_compra: "2026-08-10", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 96.08, valor_parcela: 48.04, pessoa: "Lucas" },
+    { data_compra: "2026-08-10", mes_fatura: "2026-08", descricao: "JIM COM MATHEUS COEL", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 8, valor_total: 3337.12, valor_parcela: 417.14, pessoa: "Matheus" },
+    { data_compra: "2026-08-13", mes_fatura: "2026-08", descricao: "SUPERMERCAC STA EDWIGES", tipo: "Supermercado", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 246.87, valor_parcela: 82.29, pessoa: "Lucas" },
+    { data_compra: "2026-08-15", mes_fatura: "2026-08", descricao: "ZEZE CONSTRUCAO LTDA", tipo: "Outros", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 200.00, valor_parcela: 100.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-22", mes_fatura: "2026-08", descricao: "DEPOSITO PIAUI", tipo: "Outros", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 248.04, valor_parcela: 82.68, pessoa: "Lucas" },
+    { data_compra: "2026-08-26", mes_fatura: "2026-08", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 137.42, valor_parcela: 68.71, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "LOJA FISICA LI 07 NSH", tipo: "Compras/Vestuário", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 30.27, valor_parcela: 30.27, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.00, valor_parcela: 5.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "ANCAR NORDESTE ESTAC", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.00, valor_parcela: 6.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "DROGASIL 5693", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.85, valor_parcela: 44.85, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "CLARO FLEX", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.99, valor_parcela: 9.99, pessoa: "Lucas" },
+    { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "NETFLIX ENTRETENIMENTO", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 59.90, valor_parcela: 59.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-10", mes_fatura: "2026-08", descricao: "UBER CREDIT", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 100.00, valor_parcela: 100.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-29", mes_fatura: "2026-08", descricao: "DM SPOTIFY", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 40.90, valor_parcela: 40.90, pessoa: "Lucas" },
+    { data_compra: "2026-07-16", mes_fatura: "2026-08", descricao: "Crédito de Ajuste", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.02, valor_parcela: -0.02, pessoa: "Lucas" },
+    { data_compra: "2025-09-16", mes_fatura: "2026-08", descricao: "PAC ACADEMIAS GREENLIF", tipo: "Lazer/Assinaturas", parcelado: "Sim", p_atual: 12, p_total: 12, valor_total: 2988.00, valor_parcela: 249.00, pessoa: "Lucas" },
+    { data_compra: "2025-11-20", mes_fatura: "2026-08", descricao: "MERCADOLIVRE MERCADOL", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 10, p_total: 12, valor_total: 2896.92, valor_parcela: 241.41, pessoa: "Lucas" },
+    { data_compra: "2026-03-18", mes_fatura: "2026-08", descricao: "MERCADOLIVRE MERCADOL", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 6, p_total: 6, valor_total: 298.98, valor_parcela: 49.83, pessoa: "Lucas" },
+    { data_compra: "2026-03-25", mes_fatura: "2026-08", descricao: "CENTAURO COM BR", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 6, p_total: 10, valor_total: 725.30, valor_parcela: 72.53, pessoa: "Lucas" },
+    { data_compra: "2026-04-10", mes_fatura: "2026-08", descricao: "TICKETMASTER TICKETMAS", tipo: "Lazer/Assinaturas", parcelado: "Sim", p_atual: 5, p_total: 5, valor_total: 1247.10, valor_parcela: 249.42, pessoa: "Lucas" },
+    { data_compra: "2026-05-11", mes_fatura: "2026-08", descricao: "ZP MATHEUS 52191", tipo: "Outros", parcelado: "Sim", p_atual: 4, p_total: 4, valor_total: 891.00, valor_parcela: 222.75, pessoa: "Matheus" },
+    { data_compra: "2026-05-22", mes_fatura: "2026-08", descricao: "AMERICANAS SA", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 4, p_total: 12, valor_total: 1198.92, valor_parcela: 99.91, pessoa: "Lucas" },
+    { data_compra: "2026-05-31", mes_fatura: "2026-08", descricao: "GOL LINHAS AEREAS", tipo: "Transporte", parcelado: "Sim", p_atual: 3, p_total: 10, valor_total: 1388.40, valor_parcela: 138.84, pessoa: "Lucas" },
+    { data_compra: "2026-06-05", mes_fatura: "2026-08", descricao: "MP WEPINK", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 3, p_total: 6, valor_total: 253.68, valor_parcela: 42.28, pessoa: "Bruna" },
+    { data_compra: "2026-06-30", mes_fatura: "2026-08", descricao: "AIR EUROPA LINEAS AE", tipo: "Transporte", parcelado: "Sim", p_atual: 2, p_total: 10, valor_total: 2456.50, valor_parcela: 245.65, pessoa: "Lucas" },
+    { data_compra: "2026-08-03", mes_fatura: "2026-08", descricao: "AMAZON MARKETPLACE BR", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 12, valor_total: 382.80, valor_parcela: 31.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "FLEXPAG ENELCE", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 8, valor_total: 1035.52, valor_parcela: 129.44, pessoa: "Lucas" },
+    { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "CASASBAHIACO CASASBAHI", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 10, valor_total: 2990.60, valor_parcela: 299.06, pessoa: "Lucas" },
+    { data_compra: "2026-08-23", mes_fatura: "2026-08", descricao: "BOLO MANIA LIMOEIRO", tipo: "Alimentação", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 128.04, valor_parcela: 42.68, pessoa: "Lucas" }
+  ];
+
+  // Atribui ID local sequencial aos itens iniciais
+  dadosIniciaisFatura.forEach((item, index) => {
+    item.id = index + 1;
+  });
+
+  let gastos = [];
+  const pessoas = ["Lucas", "Matheus", "Bruna", "Amon", "Marta", "Vera", "Outros"];
+  const categorias = ["Supermercado", "Alimentação", "Transporte", "Lazer/Assinaturas", "Compras/Vestuário", "Farmácia/Saúde", "Serviços", "Outros"];
+
+  const coresPessoas = {
+    "Lucas": "#2563eb",
+    "Matheus": "#dc2626",
+    "Bruna": "#ea580c",
+    "Amon": "#16a34a",
+    "Marta": "#9333ea",
+    "Vera": "#db2777",
+    "Outros": "#64748b"
+  };
+
+  const coresCategorias = {
+    "Supermercado": "#10b981",
+    "Alimentação": "#f59e0b",
+    "Transporte": "#3b82f6",
+    "Lazer/Assinaturas": "#8b5cf6",
+    "Compras/Vestuário": "#ec4899",
+    "Farmácia/Saúde": "#ef4444",
+    "Serviços": "#06b6d4",
+    "Outros": "#64748b"
+  };
+
+  let chartEvolucaoInstance = null;
+  let chartPessoasInstance = null;
+  let chartTiposInstance = null;
+
+  function salvarLocalStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(gastos));
+    } catch(e) {
+      console.warn("Erro ao gravar localStorage:", e);
+    }
+  }
+
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    btn.classList.add('active');
+
+    if (tabId === 'tab-analitico') {
+      renderAnalitico();
+    }
+  }
+
+  function formatBRL(val) {
+    return Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+
+  function formatDateBR(dateStr) {
+    if (!dateStr) return "-";
+    if (dateStr.includes("-")) {
+      const [ano, mes, dia] = dateStr.split("-");
+      return `${dia}/${mes}`;
+    }
+    return dateStr;
+  }
+
+  function toggleParcelasInput() {
+    const isParc = document.getElementById("inp-parcelado").value === "Sim";
+    document.getElementById("group-qtd-parcelas").style.display = isParc ? "flex" : "none";
+  }
+
+  function calcularMesFatura(dataStr) {
+    if (!dataStr) return "2026-08";
+    let ano, mes, dia;
+    if (dataStr.includes("-")) {
+      [ano, mes, dia] = dataStr.split("-").map(Number);
+    } else if (dataStr.includes("/")) {
+      [dia, mes, ano] = dataStr.split("/").map(Number);
+    } else {
+      const d = new Date();
+      ano = d.getFullYear();
+      mes = d.getMonth() + 1;
+      dia = d.getDate();
+    }
+    let fAno = ano;
+    let fMes = mes;
+    if (dia > 30) {
+      fMes += 1;
+      if (fMes > 12) {
+        fMes = 1;
+        fAno += 1;
+      }
+    }
+    return `${fAno}-${String(fMes).padStart(2, '0')}`;
+  }
+
+  // 3. OBTENÇÃO DE ITENS PROJETADOS PARA QUALQUER MÊS
+  function obterItensDoMes(mesAlvo) {
+    if (mesAlvo === "Todos") {
+      return gastos.map((g, idx) => ({
+        ...g,
+        _origIndex: idx,
+        p_atual_calc: g.p_atual,
+        p_total_calc: g.p_total,
+        mes_fatura_calc: g.mes_fatura
+      }));
+    }
+
+    const [alvoAno, alvoMes] = mesAlvo.split("-").map(Number);
+    const itensResultado = [];
+
+    gastos.forEach((g, idx) => {
+      const [gAno, gMes] = g.mes_fatura.split("-").map(Number);
+      const diffMeses = (alvoAno - gAno) * 12 + (alvoMes - gMes);
+
+      if (g.parcelado === "Não") {
+        if (diffMeses === 0) {
+          itensResultado.push({
+            ...g,
+            _origIndex: idx,
+            p_atual_calc: 1,
+            p_total_calc: 1,
+            mes_fatura_calc: mesAlvo
+          });
+        }
+      } else {
+        if (diffMeses >= 0) {
+          const parcelaCalculada = Number(g.p_atual) + diffMeses;
+          if (parcelaCalculada <= Number(g.p_total)) {
+            itensResultado.push({
+              ...g,
+              _origIndex: idx,
+              p_atual_calc: parcelaCalculada,
+              p_total_calc: g.p_total,
+              mes_fatura_calc: mesAlvo
+            });
+          }
+        }
+      }
+    });
+
+    return itensResultado;
+  }
+
+  // 4. POPULAR FILTRO DE MESES
+  function popularFiltroMeses(mesParaSelecionar = null) {
+    const selectMes = document.getElementById("filter-mes");
+    const selectAnalitico = document.getElementById("analitico-mes-tipo");
+    const valorAtual = mesParaSelecionar || selectMes.value || "2026-08";
+
+    const mesesSet = new Set();
+
+    gastos.forEach(g => {
+      if (g.mes_fatura) mesesSet.add(g.mes_fatura);
+
+      if (g.parcelado === "Sim") {
+        const [gAno, gMes] = g.mes_fatura.split("-").map(Number);
+        const parcelasRestantes = Number(g.p_total) - Number(g.p_atual);
+        for (let i = 1; i <= parcelasRestantes; i++) {
+          const d = new Date(gAno, (gMes - 1) + i, 1);
+          const mesFuturo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          mesesSet.add(mesFuturo);
+        }
+      }
+    });
+
+    const mesesArray = Array.from(mesesSet).sort();
+
+    selectMes.innerHTML = "";
+    if (selectAnalitico) selectAnalitico.innerHTML = "";
+
+    mesesArray.forEach(m => {
+      const opt1 = document.createElement("option");
+      opt1.value = m;
+      opt1.textContent = `Fatura: ${m}`;
+      if (m === valorAtual) opt1.selected = true;
+      selectMes.appendChild(opt1);
+
+      if (selectAnalitico) {
+        const opt2 = document.createElement("option");
+        opt2.value = m;
+        opt2.textContent = m;
+        if (m === valorAtual) opt2.selected = true;
+        selectAnalitico.appendChild(opt2);
+      }
+    });
+
+    const optTodos = document.createElement("option");
+    optTodos.value = "Todos";
+    optTodos.textContent = "Todos os Meses";
+    if (valorAtual === "Todos") optTodos.selected = true;
+    selectMes.appendChild(optTodos);
+  }
+
+  function atualizarFiltros() {
+    renderTotais();
+    renderTabela();
+  }
+
+  // 5. INICIALIZAÇÃO
+  async function iniciarDashboard() {
+    document.getElementById("inp-data-compra").value = new Date().toISOString().split("T")[0];
+    const statusLabel = document.getElementById("status-storage");
+
+    const localCache = localStorage.getItem(STORAGE_KEY);
+    if (localCache) {
+      try {
+        gastos = JSON.parse(localCache);
+      } catch(e) {
+        gastos = [...dadosIniciaisFatura];
+      }
+    } else {
+      gastos = [...dadosIniciaisFatura];
+      salvarLocalStorage();
+    }
+
+    if (!sb) {
+      statusLabel.textContent = "Armazenamento: Local (Offline)";
+      popularFiltroMeses();
+      renderTotais();
+      renderTabela();
+      return;
+    }
+
+    try {
+      statusLabel.textContent = "Supabase: Conectando...";
+      const { data, error } = await sb.from('gastos_cartao').select('*').order('id', { ascending: false });
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        document.getElementById("sync-banner").style.display = "flex";
+        statusLabel.textContent = "Supabase: Conectado (Tabela Vazia)";
+      } else {
+        gastos = data;
+        salvarLocalStorage();
+        statusLabel.textContent = "Supabase: Sincronizado ✅";
+      }
+    } catch (err) {
+      console.warn("Aviso Supabase:", err);
+      statusLabel.textContent = "Armazenamento: Local (Supabase indisponível)";
+    }
+
+    popularFiltroMeses();
+    renderTotais();
+    renderTabela();
+  }
+
+  async function sincronizarDadosIniciais() {
+    if (!sb) return;
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = "Sincronizando...";
+
+    try {
+      const paraInserir = dadosIniciaisFatura.map(({ id, ...resto }) => resto);
+      const { error } = await sb.from('gastos_cartao').insert(paraInserir);
+      if (error) throw error;
+      alert("Sucesso! Todos os lançamentos foram salvos no Supabase.");
+      document.getElementById("sync-banner").style.display = "none";
+      location.reload();
+    } catch (err) {
+      alert("Erro ao sincronizar: " + err.message);
+      btn.disabled = false;
+      btn.textContent = "Sincronizar Agora";
+    }
+  }
+
+  function renderTotais() {
+    const mesFiltro = document.getElementById("filter-mes").value;
+    const labelTotal = document.getElementById("label-fatura-total");
+
+    const itensDoMes = obterItensDoMes(mesFiltro);
+
+    labelTotal.textContent = mesFiltro === "Todos" 
+      ? "Total Geral (Consolidado)" 
+      : `Fatura Prevista (${mesFiltro})`;
+
+    const totalGeral = itensDoMes.reduce((acc, g) => acc + Number(g.valor_parcela), 0);
+    document.getElementById("global-total").textContent = formatBRL(totalGeral);
+
+    const containerCards = document.getElementById("people-cards");
+    containerCards.innerHTML = "";
+
+    pessoas.forEach(p => {
+      const gastosPessoa = itensDoMes.filter(g => g.pessoa === p);
+      const totalPessoa = gastosPessoa.reduce((acc, g) => acc + Number(g.valor_parcela), 0);
+
+      const card = document.createElement("div");
+      card.className = "person-card";
+      card.style.borderLeftColor = coresPessoas[p] || "#ccc";
+      card.onclick = () => {
+        document.getElementById("filter-pessoa").value = p;
+        renderTabela();
+      };
+
+      card.innerHTML = `
+        <h3>${p}</h3>
+        <div class="amount">${formatBRL(totalPessoa)}</div>
+        <div class="qty">${gastosPessoa.length} compras/parcelas</div>
+      `;
+      containerCards.appendChild(card);
+    });
+  }
+
+  // 6. RENDERIZAÇÃO DA TABELA / CARDS
+  function renderTabela() {
+    const filtroPessoa = document.getElementById("filter-pessoa").value;
+    const filtroMes = document.getElementById("filter-mes").value;
+    const tbody = document.getElementById("gastos-tbody");
+    tbody.innerHTML = "";
+
+    const itensDoMes = obterItensDoMes(filtroMes);
+
+    itensDoMes.forEach((item) => {
+      if (filtroPessoa !== "Todos" && item.pessoa !== filtroPessoa) return;
+
+      const tr = document.createElement("tr");
+
+      let optHtml = pessoas.map(p => 
+        `<option value="${p}" ${item.pessoa === p ? "selected" : ""}>${p}</option>`
+      ).join("");
+
+      let optTipoHtml = categorias.map(c => 
+        `<option value="${c}" ${item.tipo === c ? "selected" : ""}>${c}</option>`
+      ).join("");
+
+      const parcelaLabel = item.parcelado === "Sim" 
+        ? `${String(item.p_atual_calc).padStart(2, '0')}/${String(item.p_total_calc).padStart(2, '0')}` 
+        : "-";
+
+      const badgeHtml = item.parcelado === "Sim" 
+        ? `<span class="badge-parcela">${parcelaLabel}</span>` 
+        : `<span class="badge-a-vista">À vista</span>`;
+
+      tr.innerHTML = `
+        <td class="desktop-only">${formatDateBR(item.data_compra)}</td>
+        <td class="desktop-only"><span style="font-weight:600; color:#4a5568;">${item.mes_fatura_calc}</span></td>
+        <td class="desktop-only"><strong>${item.descricao}</strong></td>
+        <td class="desktop-only">
+          <select class="select-categoria" onchange="alterarCategoria(${item.id || item._origIndex}, this.value)">
+            ${optTipoHtml}
+          </select>
+        </td>
+        <td class="desktop-only"><span class="${item.parcelado === 'Sim' ? 'badge-parcela' : 'badge-a-vista'}">${item.parcelado}</span></td>
+        <td class="desktop-only"><strong>${parcelaLabel}</strong></td>
+        <td class="desktop-only" style="color: #4a5568;">${formatBRL(item.valor_total)}</td>
+        <td class="desktop-only" style="font-weight: 600; color: ${item.valor_parcela < 0 ? '#16a34a' : '#1e293b'};">${formatBRL(item.valor_parcela)}</td>
+        <td class="desktop-only">
+          <select class="select-responsavel" onchange="alterarPessoa(${item.id || item._origIndex}, this.value)">
+            ${optHtml}
+          </select>
+        </td>
+        <td class="desktop-only">
+          <button class="btn-delete-pc" title="Excluir" onclick="excluirGasto(${item.id || item._origIndex})">&times;</button>
+        </td>
+
+        <td class="mobile-only" style="border:none; padding:0; width:100%;">
+          <div class="mobile-card">
+            <div class="mobile-card-top">
+              <span class="mobile-card-desc">${item.descricao}</span>
+              <span class="mobile-card-val" style="color:${item.valor_parcela < 0 ? '#16a34a' : 'inherit'};">${formatBRL(item.valor_parcela)}</span>
+            </div>
+            <div class="mobile-card-meta">
+              <span>📅 ${formatDateBR(item.data_compra)}</span>
+              ${badgeHtml}
+              ${item.parcelado === 'Sim' ? `<span>(Total: ${formatBRL(item.valor_total)})</span>` : ''}
+            </div>
+            <div class="mobile-card-bottom">
+              <select class="select-responsavel" onchange="alterarPessoa(${item.id || item._origIndex}, this.value)">
+                ${optHtml}
+              </select>
+              <select class="select-categoria" onchange="alterarCategoria(${item.id || item._origIndex}, this.value)">
+                ${optTipoHtml}
+              </select>
+              <button class="btn-delete-mobile" onclick="excluirGasto(${item.id || item._origIndex})">Excluir</button>
+            </div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // 7. OPERAÇÕES DE ALTERAÇÃO E EXCLUSÃO
+  async function alterarPessoa(identifier, novaPessoa) {
+    const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
+    if (item) {
+      item.pessoa = novaPessoa;
+    }
+    salvarLocalStorage();
+    renderTotais();
+    renderTabela();
+
+    if (sb && item && item.id && typeof item.id === 'number') {
+      try {
+        await sb.from('gastos_cartao').update({ pessoa: novaPessoa }).eq('id', item.id);
+      } catch (err) {
+        console.error("Erro Supabase:", err);
+      }
+    }
+
+    if (document.getElementById('tab-analitico').classList.contains('active')) {
+      renderAnalitico();
+    }
+    mostrarNotificacao("Responsável atualizado!");
+  }
+
+  async function alterarCategoria(identifier, novoTipo) {
+    const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
+    if (item) {
+      item.tipo = novoTipo;
+    }
+    salvarLocalStorage();
+    renderTabela();
+
+    if (sb && item && item.id && typeof item.id === 'number') {
+      try {
+        await sb.from('gastos_cartao').update({ tipo: novoTipo }).eq('id', item.id);
+      } catch (err) {
+        console.error("Erro Supabase:", err);
+      }
+    }
+
+    if (document.getElementById('tab-analitico').classList.contains('active')) {
+      renderAnalitico();
+    }
+    mostrarNotificacao("Categoria atualizada!");
+  }
+
+  async function excluirGasto(identifier) {
+    if (!confirm("Deseja remover esta compra (e todas as suas parcelas)?")) return;
+
+    const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
+    const idParaDeletar = item ? item.id : identifier;
+
+    gastos = gastos.filter(g => g !== item && g.id != idParaDeletar);
+    salvarLocalStorage();
+
+    popularFiltroMeses();
+    renderTotais();
+    renderTabela();
+
+    if (sb && idParaDeletar && typeof idParaDeletar === 'number') {
+      try {
+        await sb.from('gastos_cartao').delete().eq('id', idParaDeletar);
+      } catch (err) {
+        console.error("Erro ao excluir no Supabase:", err);
+      }
+    }
+
+    mostrarNotificacao("🗑️ Compra removida!");
+  }
+
+  // 8. ADICIONAR GASTO COM TRATAMENTO DE ERROS E VIRGULA
+  async function adicionarGasto() {
+    let dataCompra = document.getElementById("inp-data-compra").value;
+    if (!dataCompra) {
+      dataCompra = new Date().toISOString().split("T")[0];
+    }
+
+    const desc = document.getElementById("inp-desc").value.trim();
+    let valRaw = document.getElementById("inp-valor-total").value.trim().replace(/\s/g, '').replace('R$', '').replace(',', '.');
+    const valorTotal = parseFloat(valRaw);
+
+    const parcelado = document.getElementById("inp-parcelado").value;
+    const qtdParcelas = parseInt(document.getElementById("inp-qtd-parcelas").value) || 1;
+    const pessoa = document.getElementById("inp-pessoa").value;
+    const tipo = document.getElementById("inp-tipo").value;
+
+    if (!desc) {
+      alert("Por favor, digite a descrição da compra.");
+      return;
+    }
+
+    if (isNaN(valorTotal) || valorTotal <= 0) {
+      alert("Por favor, digite um valor total válido (ex: 150,00).");
+      return;
+    }
+
+    const mesFatura = calcularMesFatura(dataCompra);
+    const pTotal = parcelado === "Sim" ? Math.max(qtdParcelas, 2) : 1;
+    const valorParcela = parseFloat((valorTotal / pTotal).toFixed(2));
+
+    const novoRegistro = {
+      data_compra: dataCompra,
+      mes_fatura: mesFatura,
+      descricao: desc,
+      tipo: tipo,
+      parcelado: parcelado,
+      p_atual: 1,
+      p_total: pTotal,
+      valor_total: valorTotal,
+      valor_parcela: valorParcela,
+      pessoa: pessoa
+    };
+
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    btn.textContent = "Salvando...";
+
+    let salvoNoBanco = false;
+
+    if (sb) {
+      try {
+        const { data, error } = await sb.from('gastos_cartao').insert([novoRegistro]).select();
+        if (error) throw error;
+        if (data && data.length > 0) {
+          gastos.unshift(data[0]);
+        } else {
+          novoRegistro.id = Date.now();
+          gastos.unshift(novoRegistro);
+        }
+        salvoNoBanco = true;
+      } catch (err) {
+        console.warn("Aviso Supabase:", err);
+        novoRegistro.id = Date.now();
+        gastos.unshift(novoRegistro);
+      }
+    } else {
+      novoRegistro.id = Date.now();
+      gastos.unshift(novoRegistro);
+    }
+
+    salvarLocalStorage();
+
+    document.getElementById("inp-desc").value = "";
+    document.getElementById("inp-valor-total").value = "";
+
+    if (window.innerWidth < 768) {
+      document.getElementById("details-form").removeAttribute("open");
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Salvar Compra";
+
+    // Atualiza o filtro automaticamente para o mês da compra adicionada para que ela apareça na hora!
+    popularFiltroMeses(mesFatura);
+    renderTotais();
+    renderTabela();
+
+    mostrarNotificacao(salvoNoBanco 
+      ? `✅ Compra salva na nuvem (Fatura ${mesFatura})!` 
+      : `✅ Compra salva localmente (Fatura ${mesFatura})!`);
+  }
+
+  // 9. VISÃO ANALÍTICA
+  function renderAnalitico() {
+    const baseAno = 2026;
+    const baseMes = 7;
+    const listaMesesNomes = [];
+
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(baseAno, baseMes + i, 1);
+      const nomeMes = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+      listaMesesNomes.push(nomeMes.toUpperCase());
+    }
+
+    const matrizPessoaMes = {};
+    pessoas.forEach(p => matrizPessoaMes[p] = new Array(12).fill(0));
+
+    gastos.forEach(item => {
+      const [itemAno, itemMesNum] = item.mes_fatura.split("-").map(Number);
+      const diffMeses = (itemAno - baseAno) * 12 + (itemMesNum - 1 - baseMes);
+
+      if (item.parcelado === "Não") {
+        if (diffMeses >= 0 && diffMeses < 12) {
+          matrizPessoaMes[item.pessoa][diffMeses] += Number(item.valor_parcela);
+        }
+      } else {
+        const parcelasRestantes = Number(item.p_total) - Number(item.p_atual);
+        for (let i = 0; i <= parcelasRestantes; i++) {
+          const slot = diffMeses + i;
+          if (slot >= 0 && slot < 12) {
+            matrizPessoaMes[item.pessoa][slot] += Number(item.valor_parcela);
+          }
+        }
+      }
+    });
+
+    const ctxEvolucao = document.getElementById("chartEvolucao").getContext("2d");
+    if (chartEvolucaoInstance) chartEvolucaoInstance.destroy();
+
+    const datasets = pessoas.map(p => ({
+      label: p,
+      data: matrizPessoaMes[p],
+      backgroundColor: coresPessoas[p]
+    }));
+
+    chartEvolucaoInstance = new Chart(ctxEvolucao, {
+      type: "bar",
+      data: { labels: listaMesesNomes, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatBRL(ctx.raw)}` } }
+        },
+        scales: {
+          x: { stacked: true, ticks: { font: { size: 9 } } },
+          y: { stacked: true, ticks: { callback: (v) => "R$ " + v, font: { size: 9 } } }
+        }
+      }
+    });
+
+    const ctxPessoas = document.getElementById("chartPessoas").getContext("2d");
+    if (chartPessoasInstance) chartPessoasInstance.destroy();
+
+    const mesAtualFiltro = document.getElementById("filter-mes").value;
+    const itensCalculados = obterItensDoMes(mesAtualFiltro);
+
+    const totaisPessoasGrafico = pessoas.map(p => {
+      return itensCalculados.filter(g => g.pessoa === p).reduce((acc, g) => acc + Number(g.valor_parcela), 0);
+    });
+
+    chartPessoasInstance = new Chart(ctxPessoas, {
+      type: "doughnut",
+      data: {
+        labels: pessoas,
+        datasets: [{ data: totaisPessoasGrafico, backgroundColor: pessoas.map(p => coresPessoas[p]) }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatBRL(ctx.raw)}` } }
+        }
+      }
+    });
+
+    const thead = document.getElementById("thead-progressao");
+    const tbody = document.getElementById("tbody-progressao");
+
+    thead.innerHTML = `
+      <tr>
+        <th style="padding:8px;">Pessoa</th>
+        ${listaMesesNomes.map(m => `<th style="text-align: right; padding:8px;">${m}</th>`).join("")}
+      </tr>
+    `;
+
+    let htmlTbody = "";
+    pessoas.forEach(p => {
+      htmlTbody += `<tr><td style="padding:8px; font-weight:600;">${p}</td>`;
+      matrizPessoaMes[p].forEach(v => {
+        htmlTbody += `<td style="text-align: right; padding:8px; color: ${v > 0 ? '#1e293b' : '#94a3b8'};">${v > 0 ? formatBRL(v) : '-'}</td>`;
+      });
+      htmlTbody += `</tr>`;
+    });
+
+    htmlTbody += `<tr style="background:#f1f5f9; font-weight: bold;"><td>Total Mês</td>`;
+    for (let c = 0; c < 12; c++) {
+      let totCol = 0;
+      pessoas.forEach(p => totCol += matrizPessoaMes[p][c]);
+      htmlTbody += `<td style="text-align: right; padding:8px; color:#16a34a;">${formatBRL(totCol)}</td>`;
+    }
+    htmlTbody += `</tr>`;
+
+    tbody.innerHTML = htmlTbody;
+
+    renderConsumoTipo();
+  }
+
+  // 10. CONSUMO POR CATEGORIA
+  function renderConsumoTipo() {
+    const selectMes = document.getElementById("analitico-mes-tipo");
+    if (!selectMes) return;
+    const mesEscolhido = selectMes.value || "2026-08";
+
+    const itensMes = obterItensDoMes(mesEscolhido);
+
+    const matrizTipo = {};
+    categorias.forEach(cat => {
+      matrizTipo[cat] = {};
+      pessoas.forEach(p => {
+        matrizTipo[cat][p] = 0;
+      });
+    });
+
+    itensMes.forEach(item => {
+      const cat = categorias.includes(item.tipo) ? item.tipo : "Outros";
+      if (matrizTipo[cat] && matrizTipo[cat][item.pessoa] !== undefined) {
+        matrizTipo[cat][item.pessoa] += Number(item.valor_parcela);
+      }
+    });
+
+    const ctxTipos = document.getElementById("chartTiposPessoas").getContext("2d");
+    if (chartTiposInstance) chartTiposInstance.destroy();
+
+    const datasetsCategorias = categorias.map(cat => ({
+      label: cat,
+      data: pessoas.map(p => matrizTipo[cat][p]),
+      backgroundColor: coresCategorias[cat] || "#94a3b8"
+    }));
+
+    chartTiposInstance = new Chart(ctxTipos, {
+      type: "bar",
+      data: {
+        labels: pessoas,
+        datasets: datasetsCategorias
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatBRL(ctx.raw)}`
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, ticks: { font: { size: 10, weight: "bold" } } },
+          y: { stacked: true, ticks: { callback: (v) => "R$ " + v, font: { size: 9 } } }
+        }
+      }
+    });
+
+    const thead = document.getElementById("thead-tipo-pessoa");
+    const tbody = document.getElementById("tbody-tipo-pessoa");
+
+    thead.innerHTML = `
+      <tr>
+        <th style="padding:8px;">Categoria / Tipo</th>
+        ${pessoas.map(p => `<th style="text-align: right; padding:8px;">${p}</th>`).join("")}
+        <th style="text-align: right; padding:8px; background:#f1f5f9; font-weight:700;">Total Categoria</th>
+      </tr>
+    `;
+
+    let htmlTbody = "";
+    categorias.forEach(cat => {
+      let totalLinha = 0;
+      htmlTbody += `<tr><td style="padding:8px; font-weight:600;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${coresCategorias[cat]}; margin-right:6px;"></span>${cat}</td>`;
+      pessoas.forEach(p => {
+        const val = matrizTipo[cat][p];
+        totalLinha += val;
+        htmlTbody += `<td style="text-align: right; padding:8px; color: ${val > 0 ? '#1e293b' : '#94a3b8'};">${val > 0 ? formatBRL(val) : '-'}</td>`;
+      });
+      htmlTbody += `<td style="text-align: right; padding:8px; font-weight:700; background:#f8fafc; color:#1e293b;">${totalLinha > 0 ? formatBRL(totalLinha) : '-'}</td></tr>`;
+    });
+
+    htmlTbody += `<tr style="background:#f1f5f9; font-weight:bold; border-top:2px solid var(--border);"><td>Total Pessoa</td>`;
+    let totalGeralMatriz = 0;
+    pessoas.forEach(p => {
+      let totalCol = 0;
+      categorias.forEach(cat => totalCol += matrizTipo[cat][p]);
+      totalGeralMatriz += totalCol;
+      htmlTbody += `<td style="text-align: right; padding:8px; color:#16a34a;">${formatBRL(totalCol)}</td>`;
+    });
+    htmlTbody += `<td style="text-align: right; padding:8px; color:#16a34a; font-size:0.95rem;">${formatBRL(totalGeralMatriz)}</td></tr>`;
+
+    tbody.innerHTML = htmlTbody;
+  }
+</script>
+
+</body>
+</html>
