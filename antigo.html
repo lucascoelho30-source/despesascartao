@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,13 +8,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- PDF.js para leitura direta de faturas em PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    if (typeof pdfjsLib !== 'undefined') {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-  </script>
   <style>
     :root {
       --primary: #e60000;
@@ -70,7 +63,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Ecrã de Bloqueio */
+    /* Tela de Bloqueio */
     #lock-screen {
       position: fixed;
       inset: 0;
@@ -171,7 +164,6 @@
       display: flex;
       gap: 8px;
       align-items: center;
-      flex-wrap: wrap;
     }
 
     .header-total-box {
@@ -198,17 +190,7 @@
       background: #e2e8f0;
     }
 
-    .btn-upload-pdf {
-      background: #fee2e2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
-    }
-
-    .btn-upload-pdf:hover {
-      background: #fecaca;
-    }
-
-    /* Separadores de Navegação */
+    /* Abas */
     .nav-tabs {
       display: flex;
       background: #e2e8f0;
@@ -241,6 +223,7 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    /* Caixa Padrão */
     .card-box {
       background: var(--card-bg);
       padding: 18px;
@@ -320,7 +303,22 @@
       margin-bottom: 12px;
     }
 
-    /* Mobile */
+    .sync-alert {
+      background: #fffaf0;
+      border: 1px solid #feebc8;
+      color: #c05621;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    /* ============================================================
+       MOBILE (< 768px)
+       ============================================================ */
     @media (max-width: 767px) {
       .desktop-only { display: none !important; }
 
@@ -465,7 +463,9 @@
       }
     }
 
-    /* Desktop */
+    /* ============================================================
+       DESKTOP (>= 768px)
+       ============================================================ */
     @media (min-width: 768px) {
       body { padding: 24px; }
       .mobile-only { display: none !important; }
@@ -582,36 +582,32 @@
 </head>
 <body>
 
-<!-- Input oculto para importação de PDF -->
-<input type="file" id="input-pdf-fatura" accept="application/pdf" style="display:none;" onchange="processarFaturaPDF(event)">
-
-<!-- Notificação Toast -->
+<!-- NOTIFICAÇÃO TOAST -->
 <div id="toast-msg"></div>
 
-<!-- Ecrã de Bloqueio -->
+<!-- TELA DE PROTEÇÃO -->
 <div id="lock-screen">
   <div class="lock-card">
     <h2>🔒 Acesso Restrito</h2>
-    <p>Introduza o código para aceder ao controlo de despesas</p>
+    <p>Digite a senha para acessar o controle de gastos</p>
     <input type="password" inputmode="numeric" id="input-senha" placeholder="••••" autofocus onkeydown="if(event.key==='Enter') verificarSenha()">
     <label class="lock-remember">
-      <input type="checkbox" id="check-lembrar"> Lembrar neste dispositivo
+      <input type="checkbox" id="check-lembrar"> Lembrar neste aparelho
     </label>
     <button class="btn-unlock" onclick="verificarSenha()">Entrar no Painel</button>
-    <div id="lock-error" style="color:#ef4444; font-size:0.8rem; margin-top:8px; display:none;">Código incorreto.</div>
+    <div id="lock-error" style="color:#ef4444; font-size:0.8rem; margin-top:8px; display:none;">Senha incorreta.</div>
   </div>
 </div>
 
-<!-- Aplicação Principal -->
+<!-- APLICAÇÃO PRINCIPAL -->
 <div class="container" id="main-app">
   <header>
     <div class="header-top">
       <div>
         <h1>Gestão de Fatura & Cartão</h1>
-        <small id="status-storage" style="color:var(--text-muted);">A sincronizar...</small>
+        <small id="status-storage" style="color:var(--text-muted);">Sincronizando...</small>
       </div>
       <div class="header-actions">
-        <button class="btn-action btn-upload-pdf" onclick="document.getElementById('input-pdf-fatura').click()">📄 Anexar Fatura (PDF)</button>
         <button class="btn-action" onclick="configurarSupabase()">⚙️ Supabase</button>
         <button class="btn-action" onclick="bloquearPainel()">🔒 Bloquear</button>
       </div>
@@ -622,7 +618,12 @@
     </div>
   </header>
 
-  <!-- Separadores -->
+  <div id="sync-banner" class="sync-alert" style="display:none;">
+    <span>⚡ <strong>Aviso:</strong> A tabela no Supabase está conectada mas vazia. Enviar os lançamentos base para a nuvem?</span>
+    <button onclick="sincronizarDadosIniciais()" style="background:#dd6b20; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">Sincronizar Agora</button>
+  </div>
+
+  <!-- Abas -->
   <div class="nav-tabs">
     <button class="nav-tab-btn active" onclick="switchTab('tab-lancamentos', this)">📑 Lançamentos & Fatura</button>
     <button class="nav-tab-btn" onclick="switchTab('tab-analitico', this)">📊 Gráficos & Projeção</button>
@@ -631,8 +632,10 @@
   <!-- ABA 1: LANÇAMENTOS -->
   <div id="tab-lancamentos" class="tab-content active">
     
+    <!-- Pessoas (Carrossel no celular / Grid no PC) -->
     <div class="people-grid" id="people-cards"></div>
 
+    <!-- Formulário -->
     <div class="card-box">
       <details class="form-accordion" id="details-form">
         <summary>Incluir Nova Compra</summary>
@@ -685,7 +688,7 @@
               <option value="Outros">Outros</option>
             </select>
           </div>
-          <button class="btn-add" id="btn-submit" onclick="adicionarGasto()">Guardar Compra</button>
+          <button class="btn-add" id="btn-submit" onclick="adicionarGasto()">Salvar Compra</button>
         </div>
       </details>
     </div>
@@ -715,6 +718,7 @@
         </div>
       </div>
 
+      <!-- Tabela Desktop & Cards Mobile -->
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -754,7 +758,7 @@
       </div>
     </div>
 
-    <!-- Análise de Consumo por Categoria -->
+    <!-- Análise de Consumo por Tipo/Categoria -->
     <div class="card-box">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
         <div>
@@ -780,6 +784,7 @@
       </div>
     </div>
 
+    <!-- Tabela Geral de Projeção -->
     <div class="card-box">
       <h2 style="font-size: 1.15rem; margin-bottom: 12px;">Detalhamento Geral da Projeção de Parcelas</h2>
       <div style="overflow-x: auto;">
@@ -794,7 +799,7 @@
 
 <script>
   const SENHA_ACESSO = "3011";
-  const STORAGE_KEY = "dashboard_gastos_cartao_v4";
+  const STORAGE_KEY = "dashboard_gastos_cartao_v3";
 
   let SUPABASE_URL = localStorage.getItem("supabase_url") || "SUA_SUPABASE_URL_AQUI";
   let SUPABASE_ANON_KEY = localStorage.getItem("supabase_key") || "SUA_SUPABASE_ANON_KEY_AQUI";
@@ -814,20 +819,24 @@
     toast.textContent = texto;
     toast.style.background = cor;
     toast.style.display = "block";
-    setTimeout(() => { toast.style.display = "none"; }, 4000);
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 3500);
   }
 
   function configurarSupabase() {
     const atualUrl = SUPABASE_URL.startsWith("SUA_") ? "" : SUPABASE_URL;
     const url = prompt("Cole a URL do seu Supabase:", atualUrl);
     if (url === null) return;
+
     const atualKey = SUPABASE_ANON_KEY.startsWith("SUA_") ? "" : SUPABASE_ANON_KEY;
     const key = prompt("Cole a Anon Key do seu Supabase:", atualKey);
     if (key === null) return;
+
     if (url.trim() && key.trim()) {
       localStorage.setItem("supabase_url", url.trim());
       localStorage.setItem("supabase_key", key.trim());
-      alert("Credenciais guardadas com sucesso! A página será recarregada.");
+      alert("Credenciais salvas! A página será recarregada.");
       location.reload();
     }
   }
@@ -854,9 +863,11 @@
   function desbloquearPainel() {
     document.getElementById("lock-screen").style.display = "none";
     document.getElementById("main-app").style.display = "block";
+
     if (window.innerWidth >= 768) {
       document.getElementById("details-form").setAttribute("open", "true");
     }
+
     iniciarDashboard();
   }
 
@@ -872,9 +883,8 @@
     }
   });
 
-  // 2. BASE DE DADOS COMPLETA (Fatura Agosto 2026 + Fatura Outubro 2026 unificada sem repetições)
+  // 2. BASE DE DADOS COMPLETA
   const dadosIniciaisFatura = [
-    // --- FATURA SETEMBRO (Compras de Agosto/2026) ---
     { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "MP FABYELELIRAFE", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 10.90, valor_parcela: 10.90, pessoa: "Lucas" },
     { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "GOOGLE HBO MAX STREAM", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.90, valor_parcela: 44.90, pessoa: "Lucas" },
     { data_compra: "2026-08-07", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.55, valor_parcela: 9.55, pessoa: "Lucas" },
@@ -882,7 +892,7 @@
     { data_compra: "2026-08-09", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 10.98, valor_parcela: 10.98, pessoa: "Lucas" },
     { data_compra: "2026-08-09", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 3.00, valor_parcela: 3.00, pessoa: "Lucas" },
     { data_compra: "2026-08-11", mes_fatura: "2026-08", descricao: "COMPRE MAX MISTER HUL", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 15.67, valor_parcela: 15.67, pessoa: "Lucas" },
-    { data_compra: "2026-08-12", mes_fatura: "2026-08", descricao: "MERCADINHO SAO FRANCIS", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 7.99, valor_parcela: 7.99, pessoa: "Lucas" },
+    { data_compra: "2026-08-12", mes_fatura: "2026-08", descricao: "MERCADINHO SAO FRANCIS", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.99, valor_parcela: 7.99, pessoa: "Lucas" },
     { data_compra: "2026-08-12", mes_fatura: "2026-08", descricao: "PAULINOGREGORIO", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 23.00, valor_parcela: 23.00, pessoa: "Lucas" },
     { data_compra: "2026-08-13", mes_fatura: "2026-08", descricao: "ABASTEC ABASTECE AI", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 50.31, valor_parcela: 50.31, pessoa: "Lucas" },
     { data_compra: "2026-08-13", mes_fatura: "2026-08", descricao: "IFD JOAO PE", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 8.89, valor_parcela: 8.89, pessoa: "Lucas" },
@@ -907,17 +917,6 @@
     { data_compra: "2026-08-26", mes_fatura: "2026-08", descricao: "COMPRE MAX MISTER HUL", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.59, valor_parcela: 4.59, pessoa: "Lucas" },
     { data_compra: "2026-08-27", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.12, valor_parcela: 4.12, pessoa: "Lucas" },
     { data_compra: "2026-08-27", mes_fatura: "2026-08", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.46, valor_parcela: 4.46, pessoa: "Lucas" },
-    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "LOJA FISICA LI 07 NSH", tipo: "Compras/Vestuário", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 30.27, valor_parcela: 30.27, pessoa: "Lucas" },
-    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.00, valor_parcela: 5.00, pessoa: "Lucas" },
-    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "ANCAR NORDESTE ESTAC", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.00, valor_parcela: 6.00, pessoa: "Lucas" },
-    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "DROGASIL 5693", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.85, valor_parcela: 44.85, pessoa: "Lucas" },
-    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "CLARO FLEX", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.99, valor_parcela: 9.99, pessoa: "Lucas" },
-    { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "NETFLIX ENTRETENIMENTO", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 59.90, valor_parcela: 59.90, pessoa: "Lucas" },
-    { data_compra: "2026-08-10", mes_fatura: "2026-08", descricao: "UBER CREDIT", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 100.00, valor_parcela: 100.00, pessoa: "Lucas" },
-    { data_compra: "2026-08-29", mes_fatura: "2026-08", descricao: "DM SPOTIFY", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 40.90, valor_parcela: 40.90, pessoa: "Lucas" },
-    { data_compra: "2026-07-16", mes_fatura: "2026-08", descricao: "Crédito de Ajuste", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.02, valor_parcela: -0.02, pessoa: "Lucas" },
-
-    // Parcelamentos já vigentes em Agosto/2026
     { data_compra: "2025-12-01", mes_fatura: "2026-08", descricao: "FLAMINGO KIDS COMERCIO", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 9, p_total: 10, valor_total: 1500.00, valor_parcela: 150.00, pessoa: "Lucas" },
     { data_compra: "2026-01-30", mes_fatura: "2026-08", descricao: "GRUPO CASAS BAHIA 1707", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 8, p_total: 10, valor_total: 2069.10, valor_parcela: 206.91, pessoa: "Lucas" },
     { data_compra: "2026-02-13", mes_fatura: "2026-08", descricao: "PINPAG SEPROSY", tipo: "Serviços", parcelado: "Sim", p_atual: 7, p_total: 12, valor_total: 2150.76, valor_parcela: 179.23, pessoa: "Lucas" },
@@ -943,6 +942,15 @@
     { data_compra: "2026-08-15", mes_fatura: "2026-08", descricao: "ZEZE CONSTRUCAO LTDA", tipo: "Outros", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 200.00, valor_parcela: 100.00, pessoa: "Lucas" },
     { data_compra: "2026-08-22", mes_fatura: "2026-08", descricao: "DEPOSITO PIAUI", tipo: "Outros", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 248.04, valor_parcela: 82.68, pessoa: "Lucas" },
     { data_compra: "2026-08-26", mes_fatura: "2026-08", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 137.42, valor_parcela: 68.71, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "LOJA FISICA LI 07 NSH", tipo: "Compras/Vestuário", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 30.27, valor_parcela: 30.27, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "FORTALEZA NORTH SHOPPI", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.00, valor_parcela: 5.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "ANCAR NORDESTE ESTAC", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.00, valor_parcela: 6.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "DROGASIL 5693", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.85, valor_parcela: 44.85, pessoa: "Lucas" },
+    { data_compra: "2026-08-02", mes_fatura: "2026-08", descricao: "CLARO FLEX", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.99, valor_parcela: 9.99, pessoa: "Lucas" },
+    { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "NETFLIX ENTRETENIMENTO", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 59.90, valor_parcela: 59.90, pessoa: "Lucas" },
+    { data_compra: "2026-08-10", mes_fatura: "2026-08", descricao: "UBER CREDIT", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 100.00, valor_parcela: 100.00, pessoa: "Lucas" },
+    { data_compra: "2026-08-29", mes_fatura: "2026-08", descricao: "DM SPOTIFY", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 40.90, valor_parcela: 40.90, pessoa: "Lucas" },
+    { data_compra: "2026-07-16", mes_fatura: "2026-08", descricao: "Crédito de Ajuste", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.02, valor_parcela: -0.02, pessoa: "Lucas" },
     { data_compra: "2025-09-16", mes_fatura: "2026-08", descricao: "PAC ACADEMIAS GREENLIF", tipo: "Lazer/Assinaturas", parcelado: "Sim", p_atual: 12, p_total: 12, valor_total: 2988.00, valor_parcela: 249.00, pessoa: "Lucas" },
     { data_compra: "2025-11-20", mes_fatura: "2026-08", descricao: "MERCADOLIVRE MERCADOL", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 10, p_total: 12, valor_total: 2896.92, valor_parcela: 241.41, pessoa: "Lucas" },
     { data_compra: "2026-03-18", mes_fatura: "2026-08", descricao: "MERCADOLIVRE MERCADOL", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 6, p_total: 6, valor_total: 298.98, valor_parcela: 49.83, pessoa: "Lucas" },
@@ -956,83 +964,13 @@
     { data_compra: "2026-08-03", mes_fatura: "2026-08", descricao: "AMAZON MARKETPLACE BR", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 12, valor_total: 382.80, valor_parcela: 31.90, pessoa: "Lucas" },
     { data_compra: "2026-08-04", mes_fatura: "2026-08", descricao: "FLEXPAG ENELCE", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 8, valor_total: 1035.52, valor_parcela: 129.44, pessoa: "Lucas" },
     { data_compra: "2026-08-06", mes_fatura: "2026-08", descricao: "CASASBAHIACO CASASBAHI", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 10, valor_total: 2990.60, valor_parcela: 299.06, pessoa: "Lucas" },
-    { data_compra: "2026-08-23", mes_fatura: "2026-08", descricao: "BOLO MANIA LIMOEIRO", tipo: "Alimentação", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 128.04, valor_parcela: 42.68, pessoa: "Lucas" },
-
-    // --- FATURA OUTUBRO (Compras e novos parcelamentos de Setembro/2026) ---
-    { data_compra: "2026-09-02", mes_fatura: "2026-09", descricao: "CLARO FLEX", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 29.99, valor_parcela: 29.99, pessoa: "Lucas" },
-    { data_compra: "2026-09-03", mes_fatura: "2026-09", descricao: "PIZZARIA DMAX", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 24.00, valor_parcela: 24.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-04", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.40, valor_parcela: 9.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-05", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 17.98, valor_parcela: 17.98, pessoa: "Lucas" },
-    { data_compra: "2026-09-06", mes_fatura: "2026-09", descricao: "LEAL ACAI", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 18.23, valor_parcela: 18.23, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.40, valor_parcela: 6.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "ANCAR NORDESTE ESTAC", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.00, valor_parcela: 6.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 52.71, valor_parcela: 52.71, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "GOOGLE HBO MAX STREAM", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 44.90, valor_parcela: 44.90, pessoa: "Lucas" },
-    { data_compra: "2026-09-08", mes_fatura: "2026-09", descricao: "BOREAL DOCES", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.00, valor_parcela: 4.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-09", mes_fatura: "2026-09", descricao: "DEUZIAN DE SOUSA RABEL", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 38.00, valor_parcela: 38.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-10", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.60, valor_parcela: 9.60, pessoa: "Lucas" },
-    { data_compra: "2026-09-10", mes_fatura: "2026-09", descricao: "RESTAURANTE VANEGAS GR", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.00, valor_parcela: 7.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-10", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 65.40, valor_parcela: 65.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.99, valor_parcela: 7.99, pessoa: "Lucas" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "MERCADINHO SAO FRANCIS", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.19, valor_parcela: 6.19, pessoa: "Lucas" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "BURGER KING", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 35.90, valor_parcela: 35.90, pessoa: "Lucas" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "POSTO ANTONIO BEZERRA", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 52.20, valor_parcela: 52.20, pessoa: "Lucas" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "CONDOMINIO CIVIL DO SH", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.00, valor_parcela: 5.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-13", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 9.50, valor_parcela: 9.50, pessoa: "Lucas" },
-    { data_compra: "2026-09-14", mes_fatura: "2026-09", descricao: "HOSPITALITY", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 2.00, valor_parcela: 2.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-14", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.08, valor_parcela: 5.08, pessoa: "Lucas" },
-    { data_compra: "2026-09-15", mes_fatura: "2026-09", descricao: "52743004ANDRE", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 4.50, valor_parcela: 4.50, pessoa: "Lucas" },
-    { data_compra: "2026-09-16", mes_fatura: "2026-09", descricao: "KELITON ELANIO ARALIJO", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.00, valor_parcela: 7.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-17", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 8.37, valor_parcela: 8.37, pessoa: "Lucas" },
-    { data_compra: "2026-09-18", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 3.99, valor_parcela: 3.99, pessoa: "Lucas" },
-    { data_compra: "2026-09-18", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.40, valor_parcela: 5.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-18", mes_fatura: "2026-09", descricao: "PICANHA DO JONAS II", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 46.26, valor_parcela: 46.26, pessoa: "Lucas" },
-    { data_compra: "2026-09-19", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 12.07, valor_parcela: 12.07, pessoa: "Lucas" },
-    { data_compra: "2026-09-19", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 50.00, valor_parcela: 50.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-20", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 22.12, valor_parcela: 22.12, pessoa: "Lucas" },
-    { data_compra: "2026-09-21", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 8.07, valor_parcela: 8.07, pessoa: "Lucas" },
-    { data_compra: "2026-09-21", mes_fatura: "2026-09", descricao: "LANCHONETE HOSPITALITY", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 2.00, valor_parcela: 2.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-21", mes_fatura: "2026-09", descricao: "MP FELIPELANCHES", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 8.00, valor_parcela: 8.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-22", mes_fatura: "2026-09", descricao: "45975766ADAILSON", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 11.00, valor_parcela: 11.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-23", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 3.09, valor_parcela: 3.09, pessoa: "Lucas" },
-    { data_compra: "2026-09-23", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.40, valor_parcela: 5.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-23", mes_fatura: "2026-09", descricao: "45975766ADAILSON", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.30, valor_parcela: 6.30, pessoa: "Lucas" },
-    { data_compra: "2026-09-23", mes_fatura: "2026-09", descricao: "DL UBERRIDES", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 10.41, valor_parcela: 10.41, pessoa: "Lucas" },
-    { data_compra: "2026-09-24", mes_fatura: "2026-09", descricao: "CARLOS EDUARDO LINHAR", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 18.00, valor_parcela: 18.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-24", mes_fatura: "2026-09", descricao: "CARLOS EDUARDO LINHAR", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 20.00, valor_parcela: 20.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-24", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 11.48, valor_parcela: 11.48, pessoa: "Lucas" },
-    { data_compra: "2026-09-01", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 1.20, valor_parcela: 1.20, pessoa: "Lucas" },
-    { data_compra: "2026-09-01", mes_fatura: "2026-09", descricao: "POSTO ANTONIO BEZERRA", tipo: "Transporte", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 57.81, valor_parcela: 57.81, pessoa: "Lucas" },
-    { data_compra: "2026-09-25", mes_fatura: "2026-09", descricao: "52743004ANDRE", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 7.87, valor_parcela: 7.87, pessoa: "Lucas" },
-    { data_compra: "2026-09-26", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 34.06, valor_parcela: 34.06, pessoa: "Lucas" },
-    { data_compra: "2026-09-26", mes_fatura: "2026-09", descricao: "MP PADARIASAOVIC", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 6.40, valor_parcela: 6.40, pessoa: "Lucas" },
-    { data_compra: "2026-09-26", mes_fatura: "2026-09", descricao: "PAO DE ACUCAR-2375", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 5.99, valor_parcela: 5.99, pessoa: "Lucas" },
-    { data_compra: "2026-09-27", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 14.68, valor_parcela: 14.68, pessoa: "Lucas" },
-    { data_compra: "2026-09-28", mes_fatura: "2026-09", descricao: "HOSPITALITY", tipo: "Alimentação", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 2.00, valor_parcela: 2.00, pessoa: "Lucas" },
-    { data_compra: "2026-09-06", mes_fatura: "2026-09", descricao: "NETFLIX COM", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 59.90, valor_parcela: 59.90, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "UNIATEN MENSALIDADE", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 956.92, valor_parcela: 956.92, pessoa: "Lucas" },
-    { data_compra: "2026-09-11", mes_fatura: "2026-09", descricao: "CLARO FLEX REC", tipo: "Serviços", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 19.80, valor_parcela: 19.80, pessoa: "Lucas" },
-    { data_compra: "2026-09-29", mes_fatura: "2026-09", descricao: "DL SPOTIFY P476E", tipo: "Lazer/Assinaturas", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 40.90, valor_parcela: 40.90, pessoa: "Lucas" },
-    { data_compra: "2026-09-24", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA (Amanda)", tipo: "Supermercado", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: 12.30, valor_parcela: 12.30, pessoa: "Lucas" },
-    { data_compra: "2026-08-10", mes_fatura: "2026-09", descricao: "Ajuste Crédito JIM", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.03, valor_parcela: -0.03, pessoa: "Matheus" },
-    { data_compra: "2026-08-22", mes_fatura: "2026-09", descricao: "Ajuste Crédito Depósito", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.02, valor_parcela: -0.02, pessoa: "Lucas" },
-    { data_compra: "2026-08-03", mes_fatura: "2026-09", descricao: "Ajuste Crédito Amazon", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.04, valor_parcela: -0.04, pessoa: "Lucas" },
-    { data_compra: "2026-08-23", mes_fatura: "2026-09", descricao: "Ajuste Crédito Bolo Mania", tipo: "Outros", parcelado: "Não", p_atual: 1, p_total: 1, valor_total: -0.02, valor_parcela: -0.02, pessoa: "Lucas" },
-
-    // Novos Parcelamentos iniciados em Setembro/2026 (Fatura Outubro)
-    { data_compra: "2026-09-05", mes_fatura: "2026-09", descricao: "R7 INFORMATICA", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 6, valor_total: 311.28, valor_parcela: 51.88, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0285", tipo: "Farmácia/Saúde", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 117.96, valor_parcela: 58.98, pessoa: "Lucas" },
-    { data_compra: "2026-09-07", mes_fatura: "2026-09", descricao: "IAP COSMETICOS", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 127.98, valor_parcela: 42.66, pessoa: "Bruna" },
-    { data_compra: "2026-09-12", mes_fatura: "2026-09", descricao: "QUIOSQUE WEPINK IGUAT", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 104.90, valor_parcela: 52.45, pessoa: "Bruna" },
-    { data_compra: "2026-09-15", mes_fatura: "2026-09", descricao: "SUPERMERCADO COMETA", tipo: "Supermercado", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 102.70, valor_parcela: 51.35, pessoa: "Lucas" },
-    { data_compra: "2026-09-15", mes_fatura: "2026-09", descricao: "JIM COM LUCAS COELHO", tipo: "Serviços", parcelado: "Sim", p_atual: 1, p_total: 6, valor_total: 2188.74, valor_parcela: 364.79, pessoa: "Lucas" },
-    { data_compra: "2026-09-22", mes_fatura: "2026-09", descricao: "PAGUE MENOS 0283", tipo: "Farmácia/Saúde", parcelado: "Sim", p_atual: 1, p_total: 2, valor_total: 91.92, valor_parcela: 45.96, pessoa: "Lucas" },
-    { data_compra: "2026-08-31", mes_fatura: "2026-09", descricao: "LATAM AIR IPGYWB", tipo: "Transporte", parcelado: "Sim", p_atual: 1, p_total: 10, valor_total: 1514.40, valor_parcela: 151.44, pessoa: "Lucas" },
-    { data_compra: "2026-09-01", mes_fatura: "2026-09", descricao: "AMAZON BR AMAZON BR", tipo: "Compras/Vestuário", parcelado: "Sim", p_atual: 1, p_total: 10, valor_total: 1999.00, valor_parcela: 199.90, pessoa: "Lucas" },
-    { data_compra: "2026-09-15", mes_fatura: "2026-09", descricao: "PAC ACADEMIAS GREENLIF", tipo: "Lazer/Assinaturas", parcelado: "Sim", p_atual: 1, p_total: 10, valor_total: 1668.00, valor_parcela: 166.80, pessoa: "Lucas" }
+    { data_compra: "2026-08-23", mes_fatura: "2026-08", descricao: "BOLO MANIA LIMOEIRO", tipo: "Alimentação", parcelado: "Sim", p_atual: 1, p_total: 3, valor_total: 128.04, valor_parcela: 42.68, pessoa: "Lucas" }
   ];
 
-  dadosIniciaisFatura.forEach((item, index) => { item.id = index + 1; });
+  // Atribui ID local sequencial aos itens iniciais
+  dadosIniciaisFatura.forEach((item, index) => {
+    item.id = index + 1;
+  });
 
   let gastos = [];
   const pessoas = ["Lucas", "Matheus", "Bruna", "Amon", "Marta", "Vera", "Outros"];
@@ -1067,7 +1005,7 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(gastos));
     } catch(e) {
-      console.warn("Erro ao gravar em localStorage:", e);
+      console.warn("Erro ao gravar localStorage:", e);
     }
   }
 
@@ -1076,7 +1014,10 @@
     document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     btn.classList.add('active');
-    if (tabId === 'tab-analitico') renderAnalitico();
+
+    if (tabId === 'tab-analitico') {
+      renderAnalitico();
+    }
   }
 
   function formatBRL(val) {
@@ -1106,12 +1047,18 @@
       [dia, mes, ano] = dataStr.split("/").map(Number);
     } else {
       const d = new Date();
-      ano = d.getFullYear(); mes = d.getMonth() + 1; dia = d.getDate();
+      ano = d.getFullYear();
+      mes = d.getMonth() + 1;
+      dia = d.getDate();
     }
-    let fAno = ano; let fMes = mes;
+    let fAno = ano;
+    let fMes = mes;
     if (dia > 30) {
       fMes += 1;
-      if (fMes > 12) { fMes = 1; fAno += 1; }
+      if (fMes > 12) {
+        fMes = 1;
+        fAno += 1;
+      }
     }
     return `${fAno}-${String(fMes).padStart(2, '0')}`;
   }
@@ -1168,11 +1115,13 @@
   function popularFiltroMeses(mesParaSelecionar = null) {
     const selectMes = document.getElementById("filter-mes");
     const selectAnalitico = document.getElementById("analitico-mes-tipo");
-    const valorAtual = mesParaSelecionar || selectMes.value || "2026-09";
+    const valorAtual = mesParaSelecionar || selectMes.value || "2026-08";
 
     const mesesSet = new Set();
+
     gastos.forEach(g => {
       if (g.mes_fatura) mesesSet.add(g.mes_fatura);
+
       if (g.parcelado === "Sim") {
         const [gAno, gMes] = g.mes_fatura.split("-").map(Number);
         const parcelasRestantes = Number(g.p_total) - Number(g.p_atual);
@@ -1217,7 +1166,7 @@
     renderTabela();
   }
 
-  // 5. INICIALIZAÇÃO DO PAINEL
+  // 5. INICIALIZAÇÃO
   async function iniciarDashboard() {
     document.getElementById("inp-data-compra").value = new Date().toISOString().split("T")[0];
     const statusLabel = document.getElementById("status-storage");
@@ -1236,19 +1185,20 @@
 
     if (!sb) {
       statusLabel.textContent = "Armazenamento: Local (Offline)";
-      popularFiltroMeses("2026-09");
+      popularFiltroMeses();
       renderTotais();
       renderTabela();
       return;
     }
 
     try {
-      statusLabel.textContent = "Supabase: A sincronizar...";
+      statusLabel.textContent = "Supabase: Conectando...";
       const { data, error } = await sb.from('gastos_cartao').select('*').order('id', { ascending: false });
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        statusLabel.textContent = "Supabase: Tabela Vazia (Usando Local)";
+        document.getElementById("sync-banner").style.display = "flex";
+        statusLabel.textContent = "Supabase: Conectado (Tabela Vazia)";
       } else {
         gastos = data;
         salvarLocalStorage();
@@ -1259,9 +1209,29 @@
       statusLabel.textContent = "Armazenamento: Local (Supabase indisponível)";
     }
 
-    popularFiltroMeses("2026-09");
+    popularFiltroMeses();
     renderTotais();
     renderTabela();
+  }
+
+  async function sincronizarDadosIniciais() {
+    if (!sb) return;
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = "Sincronizando...";
+
+    try {
+      const paraInserir = dadosIniciaisFatura.map(({ id, ...resto }) => resto);
+      const { error } = await sb.from('gastos_cartao').insert(paraInserir);
+      if (error) throw error;
+      alert("Sucesso! Todos os lançamentos foram salvos no Supabase.");
+      document.getElementById("sync-banner").style.display = "none";
+      location.reload();
+    } catch (err) {
+      alert("Erro ao sincronizar: " + err.message);
+      btn.disabled = false;
+      btn.textContent = "Sincronizar Agora";
+    }
   }
 
   function renderTotais() {
@@ -1350,7 +1320,7 @@
           </select>
         </td>
         <td class="desktop-only">
-          <button class="btn-delete-pc" title="Remover" onclick="excluirGasto(${item.id || item._origIndex})">&times;</button>
+          <button class="btn-delete-pc" title="Excluir" onclick="excluirGasto(${item.id || item._origIndex})">&times;</button>
         </td>
 
         <td class="mobile-only" style="border:none; padding:0; width:100%;">
@@ -1371,7 +1341,7 @@
               <select class="select-categoria" onchange="alterarCategoria(${item.id || item._origIndex}, this.value)">
                 ${optTipoHtml}
               </select>
-              <button class="btn-delete-mobile" onclick="excluirGasto(${item.id || item._origIndex})">Remover</button>
+              <button class="btn-delete-mobile" onclick="excluirGasto(${item.id || item._origIndex})">Excluir</button>
             </div>
           </div>
         </td>
@@ -1380,10 +1350,12 @@
     });
   }
 
-  // 7. ALTERAÇÕES E ELIMINAÇÕES
+  // 7. OPERAÇÕES DE ALTERAÇÃO E EXCLUSÃO
   async function alterarPessoa(identifier, novaPessoa) {
     const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
-    if (item) item.pessoa = novaPessoa;
+    if (item) {
+      item.pessoa = novaPessoa;
+    }
     salvarLocalStorage();
     renderTotais();
     renderTabela();
@@ -1391,29 +1363,42 @@
     if (sb && item && item.id && typeof item.id === 'number') {
       try {
         await sb.from('gastos_cartao').update({ pessoa: novaPessoa }).eq('id', item.id);
-      } catch (err) { console.error("Erro Supabase:", err); }
+      } catch (err) {
+        console.error("Erro Supabase:", err);
+      }
     }
-    if (document.getElementById('tab-analitico').classList.contains('active')) renderAnalitico();
-    mostrarNotificacao("Responsável atualizado com sucesso!");
+
+    if (document.getElementById('tab-analitico').classList.contains('active')) {
+      renderAnalitico();
+    }
+    mostrarNotificacao("Responsável atualizado!");
   }
 
   async function alterarCategoria(identifier, novoTipo) {
     const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
-    if (item) item.tipo = novoTipo;
+    if (item) {
+      item.tipo = novoTipo;
+    }
     salvarLocalStorage();
     renderTabela();
 
     if (sb && item && item.id && typeof item.id === 'number') {
       try {
         await sb.from('gastos_cartao').update({ tipo: novoTipo }).eq('id', item.id);
-      } catch (err) { console.error("Erro Supabase:", err); }
+      } catch (err) {
+        console.error("Erro Supabase:", err);
+      }
     }
-    if (document.getElementById('tab-analitico').classList.contains('active')) renderAnalitico();
-    mostrarNotificacao("Categoria atualizada com sucesso!");
+
+    if (document.getElementById('tab-analitico').classList.contains('active')) {
+      renderAnalitico();
+    }
+    mostrarNotificacao("Categoria atualizada!");
   }
 
   async function excluirGasto(identifier) {
-    if (!confirm("Pretende remover este lançamento permanentemente?")) return;
+    if (!confirm("Deseja remover esta compra (e todas as suas parcelas)?")) return;
+
     const item = gastos.find(g => (g.id && g.id == identifier) || g._origIndex == identifier);
     const idParaDeletar = item ? item.id : identifier;
 
@@ -1427,15 +1412,20 @@
     if (sb && idParaDeletar && typeof idParaDeletar === 'number') {
       try {
         await sb.from('gastos_cartao').delete().eq('id', idParaDeletar);
-      } catch (err) { console.error("Erro ao eliminar no Supabase:", err); }
+      } catch (err) {
+        console.error("Erro ao excluir no Supabase:", err);
+      }
     }
-    mostrarNotificacao("🗑️️ Lançamento removido!");
+
+    mostrarNotificacao("🗑️ Compra removida!");
   }
 
-  // 8. ADICIONAR MANUALMENTE
+  // 8. ADICIONAR GASTO COM TRATAMENTO DE ERROS E VIRGULA
   async function adicionarGasto() {
     let dataCompra = document.getElementById("inp-data-compra").value;
-    if (!dataCompra) dataCompra = new Date().toISOString().split("T")[0];
+    if (!dataCompra) {
+      dataCompra = new Date().toISOString().split("T")[0];
+    }
 
     const desc = document.getElementById("inp-desc").value.trim();
     let valRaw = document.getElementById("inp-valor-total").value.trim().replace(/\s/g, '').replace('R$', '').replace(',', '.');
@@ -1446,8 +1436,15 @@
     const pessoa = document.getElementById("inp-pessoa").value;
     const tipo = document.getElementById("inp-tipo").value;
 
-    if (!desc) { alert("Introduza a descrição da compra."); return; }
-    if (isNaN(valorTotal) || valorTotal <= 0) { alert("Introduza um valor válido."); return; }
+    if (!desc) {
+      alert("Por favor, digite a descrição da compra.");
+      return;
+    }
+
+    if (isNaN(valorTotal) || valorTotal <= 0) {
+      alert("Por favor, digite um valor total válido (ex: 150,00).");
+      return;
+    }
 
     const mesFatura = calcularMesFatura(dataCompra);
     const pTotal = parcelado === "Sim" ? Math.max(qtdParcelas, 2) : 1;
@@ -1467,9 +1464,11 @@
     };
 
     const btn = document.getElementById("btn-submit");
-    btn.disabled = true; btn.textContent = "A guardar...";
+    btn.disabled = true;
+    btn.textContent = "Salvando...";
 
     let salvoNoBanco = false;
+
     if (sb) {
       try {
         const { data, error } = await sb.from('gastos_cartao').insert([novoRegistro]).select();
@@ -1482,6 +1481,7 @@
         }
         salvoNoBanco = true;
       } catch (err) {
+        console.warn("Aviso Supabase:", err);
         novoRegistro.id = Date.now();
         gastos.unshift(novoRegistro);
       }
@@ -1491,176 +1491,36 @@
     }
 
     salvarLocalStorage();
+
     document.getElementById("inp-desc").value = "";
     document.getElementById("inp-valor-total").value = "";
-    if (window.innerWidth < 768) document.getElementById("details-form").removeAttribute("open");
 
-    btn.disabled = false; btn.textContent = "Guardar Compra";
+    if (window.innerWidth < 768) {
+      document.getElementById("details-form").removeAttribute("open");
+    }
 
+    btn.disabled = false;
+    btn.textContent = "Salvar Compra";
+
+    // Atualiza o filtro automaticamente para o mês da compra adicionada para que ela apareça na hora!
     popularFiltroMeses(mesFatura);
     renderTotais();
     renderTabela();
 
-    mostrarNotificacao(salvoNoBanco ? "✅ Guardado no Supabase!" : "✅ Guardado localmente!");
+    mostrarNotificacao(salvoNoBanco 
+      ? `✅ Compra salva na nuvem (Fatura ${mesFatura})!` 
+      : `✅ Compra salva localmente (Fatura ${mesFatura})!`);
   }
 
-  // 9. LEITURA INTELIGENTE DE FATURA PDF (COM DESDUPLICAÇÃO)
-  async function processarFaturaPDF(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    mostrarNotificacao("A ler e analisar o PDF...", "#3b82f6");
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let textoCompleto = "";
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(s => s.str).join(" ");
-        textoCompleto += "\n" + pageText;
-      }
-
-      // 1. Determinar o mês de referência da fatura analisada
-      let mesFaturaReferencia = "2026-09";
-      if (textoCompleto.includes("08/10/2026") || textoCompleto.includes("01/09/26 a 01/10/26")) {
-        mesFaturaReferencia = "2026-09";
-      } else if (textoCompleto.includes("08/09/2026") || textoCompleto.includes("04/08/26 a 31/08/26")) {
-        mesFaturaReferencia = "2026-08";
-      }
-
-      // Expressão regular para capturar linhas de despesas: DD/MM Descricao (opcional parcela XX/YY) Valor
-      const regexTransacao = /(\d{2}\/\d{2})\s+([A-Za-z0-9\s\*\.\-\_\"]+?)(?:\s+(\d{1,2}\/\d{1,2}))?\s+([\-]?\d{1,3}(?:\.\d{3})*,\d{2})/g;
-      let match;
-      let novosAdicionados = 0;
-      let duplicadosIgnorados = 0;
-      const novosRegistros = [];
-
-      while ((match = regexTransacao.exec(textoCompleto)) !== null) {
-        const dataOriginal = match[1]; // ex: 15/09
-        let desc = match[2].trim();
-        const parcelaStr = match[3]; // ex: 01/06
-        let valorStr = match[4].replace('.', '').replace(',', '.');
-        const valor = parseFloat(valorStr);
-
-        // Ignorar linhas de pagamento de fatura ou cabeçalhos
-        if (desc.includes("PAGAMENTO DE FATURA") || desc.includes("Saldo Anterior") || desc.includes("Total a Pagar") || desc.includes("ANUIDADE DIFERENCIADA")) {
-          continue;
-        }
-
-        const [diaStr, mesStr] = dataOriginal.split("/");
-        const anoCalc = (parseInt(mesStr) >= 10 && parseInt(mesStr) <= 12) ? "2025" : "2026";
-        const dataCompraFormatada = `${anoCalc}-${mesStr}-${diaStr}`;
-
-        // Identificação se é parcelado
-        const isParcelado = !!parcelaStr;
-        let pAtual = 1;
-        let pTotal = 1;
-        if (isParcelado) {
-          const [pa, pt] = parcelaStr.split("/").map(Number);
-          pAtual = pa;
-          pTotal = pt;
-        }
-
-        // REGRA DE DESDUPLICAÇÃO:
-        // 1. Se for uma parcela contínua (ex: 02/08, 08/10), verifica se já temos esse parcelamento registado
-        if (isParcelado && pAtual > 1) {
-          const existeParcelaContinuada = gastos.some(g => 
-            g.parcelado === "Sim" && 
-            (g.descricao.toLowerCase().includes(desc.substring(0, 10).toLowerCase()) || desc.toLowerCase().includes(g.descricao.substring(0, 10).toLowerCase())) &&
-            Number(g.p_total) === pTotal
-          );
-          if (existeParcelaContinuada) {
-            duplicadosIgnorados++;
-            continue; // Já consta projetado!
-          }
-        }
-
-        // 2. Se for uma compra à vista ou parcela inicial (01/XX), verifica se já foi introduzida
-        const jaExisteNaBase = gastos.some(g => 
-          g.data_compra === dataCompraFormatada &&
-          (g.descricao.toLowerCase().includes(desc.substring(0, 8).toLowerCase()) || desc.toLowerCase().includes(g.descricao.substring(0, 8).toLowerCase())) &&
-          Math.abs(Number(g.valor_parcela) - valor) < 0.05
-        );
-
-        if (jaExisteNaBase) {
-          duplicadosIgnorados++;
-          continue; // Já existe exatamente igual!
-        }
-
-        // Determinar Categoria e Pessoa automaticamente
-        let pessoaAuto = "Lucas";
-        if (desc.includes("BRUNA") || desc.includes("WEPINK") || desc.includes("IAP COSMETICOS")) pessoaAuto = "Bruna";
-        else if (desc.includes("MATHEUS")) pessoaAuto = "Matheus";
-        else if (desc.includes("MARTA")) pessoaAuto = "Marta";
-
-        let tipoAuto = "Outros";
-        const descUpper = desc.toUpperCase();
-        if (descUpper.includes("COMETA") || descUpper.includes("MERCADINHO") || descUpper.includes("PAO DE ACUCAR")) tipoAuto = "Supermercado";
-        else if (descUpper.includes("PADARIA") || descUpper.includes("PIZZARIA") || descUpper.includes("BURGER") || descUpper.includes("FRANGO") || descUpper.includes("PICANHA") || descUpper.includes("LANCH") || descUpper.includes("RESTAURANTE")) tipoAuto = "Alimentação";
-        else if (descUpper.includes("POSTO") || descUpper.includes("UBER") || descUpper.includes("ESTAC") || descUpper.includes("AIR") || descUpper.includes("GOL") || descUpper.includes("LATAM")) tipoAuto = "Transporte";
-        else if (descUpper.includes("PAGUE MENOS") || descUpper.includes("DROGASIL") || descUpper.includes("CLINICA")) tipoAuto = "Farmácia/Saúde";
-        else if (descUpper.includes("NETFLIX") || descUpper.includes("SPOTIFY") || descUpper.includes("HBO") || descUpper.includes("SHOPPI") || descUpper.includes("ACADEMIA") || descUpper.includes("TICKETMASTER")) tipoAuto = "Lazer/Assinaturas";
-        else if (descUpper.includes("CLARO") || descUpper.includes("FLEXPAG") || descUpper.includes("UNIATEN") || descUpper.includes("SEPROSY") || descUpper.includes("CONDOMINIO")) tipoAuto = "Serviços";
-        else if (descUpper.includes("AMAZON") || descUpper.includes("CASAS BAHIA") || descUpper.includes("MARISA") || descUpper.includes("CENTAURO") || descUpper.includes("AMERICANAS") || descUpper.includes("LOJA")) tipoAuto = "Compras/Vestuário";
-
-        const valorTotalCompra = isParcelado ? parseFloat((valor * pTotal).toFixed(2)) : valor;
-
-        const novoItem = {
-          data_compra: dataCompraFormatada,
-          mes_fatura: mesFaturaReferencia,
-          descricao: desc,
-          tipo: tipoAuto,
-          parcelado: isParcelado ? "Sim" : "Não",
-          p_atual: 1,
-          p_total: pTotal,
-          valor_total: valorTotalCompra,
-          valor_parcela: valor,
-          pessoa: pessoaAuto
-        };
-
-        novosRegistros.push(novoItem);
-        novosAdicionados++;
-      }
-
-      if (novosRegistros.length > 0) {
-        // Enviar para o Supabase se configurado
-        if (sb) {
-          try {
-            await sb.from('gastos_cartao').insert(novosRegistros);
-          } catch(e) { console.warn("Aviso ao guardar no Supabase:", e); }
-        }
-        novosRegistros.forEach(item => {
-          item.id = Date.now() + Math.random();
-          gastos.unshift(item);
-        });
-        salvarLocalStorage();
-      }
-
-      popularFiltroMeses(mesFaturaReferencia);
-      renderTotais();
-      renderTabela();
-
-      alert(`Processamento concluído com sucesso!\n\nNovas despesas integradas: ${novosAdicionados}\nParcelas repetidas ignoradas: ${duplicadosIgnorados}`);
-    } catch(err) {
-      console.error("Erro no processador PDF:", err);
-      alert("Não foi possível processar o ficheiro PDF diretamente. Certifique-se de que se trata da fatura Santander emitida em formato PDF digital.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  // 10. VISÃO ANALÍTICA
+  // 9. VISÃO ANALÍTICA
   function renderAnalitico() {
     const baseAno = 2026;
-    const baseMes = 7; // Agosto
+    const baseMes = 7;
     const listaMesesNomes = [];
 
     for (let i = 0; i < 12; i++) {
       const d = new Date(baseAno, baseMes + i, 1);
-      const nomeMes = d.toLocaleDateString("pt-PT", { month: "short", year: "2-digit" });
+      const nomeMes = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
       listaMesesNomes.push(nomeMes.toUpperCase());
     }
 
@@ -1770,18 +1630,20 @@
     renderConsumoTipo();
   }
 
-  // 11. CONSUMO POR CATEGORIA
+  // 10. CONSUMO POR CATEGORIA
   function renderConsumoTipo() {
     const selectMes = document.getElementById("analitico-mes-tipo");
     if (!selectMes) return;
-    const mesEscolhido = selectMes.value || "2026-09";
+    const mesEscolhido = selectMes.value || "2026-08";
 
     const itensMes = obterItensDoMes(mesEscolhido);
 
     const matrizTipo = {};
     categorias.forEach(cat => {
       matrizTipo[cat] = {};
-      pessoas.forEach(p => { matrizTipo[cat][p] = 0; });
+      pessoas.forEach(p => {
+        matrizTipo[cat][p] = 0;
+      });
     });
 
     itensMes.forEach(item => {
@@ -1802,13 +1664,20 @@
 
     chartTiposInstance = new Chart(ctxTipos, {
       type: "bar",
-      data: { labels: pessoas, datasets: datasetsCategorias },
+      data: {
+        labels: pessoas,
+        datasets: datasetsCategorias
+      },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
-          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatBRL(ctx.raw)}` } }
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatBRL(ctx.raw)}`
+            }
+          }
         },
         scales: {
           x: { stacked: true, ticks: { font: { size: 10, weight: "bold" } } },
@@ -1822,9 +1691,9 @@
 
     thead.innerHTML = `
       <tr>
-        <th style="padding:8px;">Categoria</th>
+        <th style="padding:8px;">Categoria / Tipo</th>
         ${pessoas.map(p => `<th style="text-align: right; padding:8px;">${p}</th>`).join("")}
-        <th style="text-align: right; padding:8px; background:#f1f5f9; font-weight:700;">Total</th>
+        <th style="text-align: right; padding:8px; background:#f1f5f9; font-weight:700;">Total Categoria</th>
       </tr>
     `;
 
